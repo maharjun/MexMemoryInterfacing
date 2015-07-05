@@ -133,7 +133,7 @@ public:
 		assign(M);
 	}
 	inline void operator = (const MexVector<T> &&M){
-		assign(move(M));
+		assign(std::move(M));
 	}
 	inline void operator = (const MexVector<T> &M) const{
 		this->assign(M);
@@ -555,7 +555,7 @@ public:
 		assign(M);
 	}
 	inline void operator = (const MexMatrix<T> &&M){
-		assign(move(M));
+		assign(std::move(M));
 	}
 	inline void operator = (const MexMatrix<T> &M) const{
 		assign(M);
