@@ -4,6 +4,8 @@
 #include <matrix.h>
 #include <type_traits>
 
+typedef mxArray* mxArrayPtr;
+
 template<typename T> class MexVector;
 template<typename T> class MexMatrix;
 
