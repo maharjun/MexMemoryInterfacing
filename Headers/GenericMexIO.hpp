@@ -2,6 +2,8 @@
 #define GENERIC_MEX_IO
 
 #include <matrix.h>
+#include <mex.h>
+#include <cstdarg>
 #include "MexMem.hpp"
 
 template<typename T> inline mxArrayPtr assignmxArray(T &ScalarOut, mxClassID ClassID){
@@ -57,3 +59,36 @@ template<typename T> inline mxArrayPtr assignmxArray(MexVector<MexVector<T> > &V
 	}
 	return ReturnPointer;
 }
+
+inline void WriteOutput(char *Format, ...) {
+	char buffertemp[256], bufferFinal[256];
+	std::va_list Args;
+	va_start(Args, Format);
+	
+	vsnprintf_s(buffertemp, 256, Format, Args);
+	va_end(Args);
+
+	char* tempIter = buffertemp;
+	char* FinalIter = bufferFinal;
+	for (; *tempIter != 0; ++tempIter, ++FinalIter){
+		if (*tempIter == '%'){
+			*FinalIter = '%';
+			++FinalIter;
+			*FinalIter = '%';
+		}
+		else{
+			*FinalIter = *tempIter;
+		}
+	}
+	*FinalIter = 0;
+#ifdef MEX_LIB
+	mexPrintf(bufferFinal);
+	mexEvalString("drawnow();");
+#elif defined MEX_EXE
+#undef printf
+	std::printf(bufferFinal);
+	std::fflush(stdout);
+#endif
+}
+
+#endif
