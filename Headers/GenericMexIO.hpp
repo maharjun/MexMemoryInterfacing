@@ -4,7 +4,11 @@
 #include <matrix.h>
 #include <mex.h>
 #include <cstdarg>
+#include <unordered_map>
+#include <functional>
 #include "MexMem.hpp"
+
+typedef std::unordered_map<string, pair<void*, size_t> > StructArgTable;
 
 template<typename T> inline mxArrayPtr assignmxArray(T &ScalarOut, mxClassID ClassID){
 
@@ -91,4 +95,549 @@ inline void WriteOutput(char *Format, ...) {
 #endif
 }
 
+template <typename T> inline void getInputfrommxArray(mxArray *InputArray, T &ScalarIn){
+	if (InputArray != NULL && !mxIsEmpty(InputArray))
+		ScalarIn = *reinterpret_cast<T *>(mxGetData(InputArray));
+}
+
+template <typename T> inline void getInputfrommxArray(mxArray *InputArray, MexVector<T> &VectorIn){
+	if (InputArray != NULL && !mxIsEmpty(InputArray)){
+		size_t NumElems = mxGetNumberOfElements(InputArray);
+		T* tempDataPtr = reinterpret_cast<T *>(mxGetData(InputArray));
+		VectorIn = MexVector<T>(NumElems);
+		VectorIn.copyArray(0, tempDataPtr, NumElems);
+	}
+}
+
+template <typename T> inline void getInputfrommxArray(mxArray *InputArray, MexVector<MexVector<T> > &VectorIn){
+	if (InputArray != NULL && !mxIsEmpty(InputArray) && mxGetClassID(InputArray) == mxCELL_CLASS){
+		size_t NumElems = mxGetNumberOfElements(InputArray);
+		mxArrayPtr* tempArrayPtr = reinterpret_cast<mxArrayPtr*>(mxGetData(InputArray));
+		VectorIn = MexVector<MexVector<T> >(NumElems, MexVector<T>(0));
+		for (int i = 0; i < NumElems; ++i){
+			getInputfrommxArray(tempArrayPtr[i], VectorIn[i]);
+		}
+	}
+}
+
+template <typename TypeSrc, typename TypeDest> 
+inline void getInputfrommxArray(
+	mxArray *InputArray, 
+	MexVector<TypeDest> &VectorIn, 
+	void (*casting_fun)(TypeSrc &SrcElem, TypeDest &DestElem)){
+	
+	if (InputArray != NULL && !mxIsEmpty(InputArray)){
+		size_t NumElems = mxGetNumberOfElements(InputArray);
+		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
+		VectorIn = MexVector<TypeDest>(NumElems);
+		for (int i = 0; i < NumElems; ++i){
+			casting_fun(tempArrayPtr[i], VectorIn[i]);
+		}
+	}
+}
+
+template <typename TypeSrc, typename TypeDest>
+inline void getInputfrommxArray(
+	mxArray *InputArray,
+	MexVector<TypeDest> &VectorIn,
+	std::function<void(TypeSrc &, TypeDest &)> casting_fun){
+
+	if (InputArray != NULL && !mxIsEmpty(InputArray)){
+		size_t NumElems = mxGetNumberOfElements(InputArray);
+		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
+		VectorIn = MexVector<TypeDest>(NumElems);
+		for (int i = 0; i < NumElems; ++i){
+			casting_fun(tempArrayPtr[i], VectorIn[i]);
+		}
+	}
+}
+
+template <typename TypeSrc, typename TypeDest>
+inline void getInputfrommxArray(
+	mxArray *InputArray,
+	MexVector<TypeDest> &VectorIn){
+
+	if (InputArray != NULL && !mxIsEmpty(InputArray)){
+		size_t NumElems = mxGetNumberOfElements(InputArray);
+		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
+		VectorIn = MexVector<TypeDest>(NumElems);
+		for (int i = 0; i < NumElems; ++i){
+			tempArrayPtr[i] = (TypeDest)VectorIn[i];
+		}
+	}
+}
+
+template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, T &ScalarIn, bool IS_REQUIRED = false, bool NO_EXCEPT = true){
+	
+	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr))
+		getInputfrommxArray(tempmxArrayPtr, ScalarIn);
+	else if (IS_REQUIRED){
+		WriteOutput("The field '%s' is either empty or non-existant", FieldName);
+		if (!NO_EXCEPT)
+			throw ExOps::EXCEPTION_INVALID_INPUT;
+		return 1;
+	}
+	return 0;
+}
+// MexVector<T>
+template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<T> &VectorIn, int nOptions = 0, ...){
+	
+	// processing options for input
+	bool IS_REQUIRED   = false;
+	bool NO_EXCEPT     = false;
+	bool QUIET         = false;
+	int  REQUIRED_SIZE = -1;
+
+	va_list OptionArray;
+	va_start(OptionArray, nOptions);
+	for (int i = 0; i < nOptions; ++i){
+		char *CurrOption = va_arg(OptionArray, char*);
+		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+			IS_REQUIRED = true;
+		}
+		else if (!_strcmpi("QUIET", CurrOption)){
+			QUIET = true;
+		}
+		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+			NO_EXCEPT = true;
+		}
+		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+			REQUIRED_SIZE = va_arg(OptionArray, int);
+		}
+	}
+	va_end(OptionArray);
+
+	// Processing Data
+	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
+		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
+		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
+			if (!QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
+			if (!NO_EXCEPT)
+				throw ExOps::EXCEPTION_INVALID_INPUT;
+			return 1; 
+		}
+		else{
+			getInputfrommxArray(tempmxArrayPtr, VectorIn);
+		}
+	}
+	else if(IS_REQUIRED){
+		if (!QUIET)
+			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
+		if (!NO_EXCEPT)
+			throw ExOps::EXCEPTION_INVALID_INPUT;
+		return 1;
+	}
+	return 0;
+}
+
+// MexVector<MexVector<T> >
+// This code is completely the same as the earlier one as the part that is different
+// uses the templated call to getInputfrommxArray making all the code identical
+
+// Taking structure as input
+template <typename T>
+inline int getInputfromStruct(
+	mxArray *InputStruct, const char* FieldName, 
+	MexVector<T> &VectorIn, 
+	void(*struct_inp_fun)(StructArgTable &ArgumentVects, T &DestElem),
+	int nOptions = 0, ...){
+
+	// processing options for input
+	bool IS_REQUIRED = false;
+	bool NO_EXCEPT = false;
+	bool QUIET = false;
+	int  REQUIRED_SIZE = -1;
+
+	va_list OptionArray;
+	va_start(OptionArray, nOptions);
+	for (int i = 0; i < nOptions; ++i){
+		char *CurrOption = va_arg(OptionArray, char*);
+		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+			IS_REQUIRED = true;
+		}
+		else if (!_strcmpi("QUIET", CurrOption)){
+			QUIET = true;
+		}
+		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+			NO_EXCEPT = true;
+		}
+		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+			REQUIRED_SIZE = va_arg(OptionArray, int);
+		}
+	}
+	va_end(OptionArray);
+
+	// Processing Data
+	// converting Field Name into array of field names by splitting at '-'
+	std::string FieldNameString(FieldName);
+	MexVector<std::string> FieldNamesVect(0);
+	StructArgTable StructFieldmxArrays;
+	// Split the string into its components by delimeters ' -/,'
+	do{
+		int StrLen = FieldNameString.length();
+		size_t DelimPos = FieldNameString.find_last_of(" -/,");
+		string currentField;
+		if (DelimPos != std::string::npos){
+			currentField = FieldNameString.substr(DelimPos+1);
+			FieldNameString.resize(DelimPos);
+		}
+		else{
+			currentField = FieldNameString;
+			FieldNameString = "";
+		}
+		if (currentField != ""){
+			FieldNamesVect.push_back(currentField);
+		}
+	} while (FieldNameString.length() != 0);
+
+	// For each valid field name stored in vector, add entry in map
+
+	size_t PrevNumElems = 0; // used to enforce condition that all are of equal size
+
+	for (int i = 0; i < FieldNamesVect.size(); ++i){
+		mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldNamesVect[i].data());
+		size_t NumElems = (tempmxArrayPtr != NULL)?mxGetNumberOfElements(tempmxArrayPtr):0;
+
+		if (NumElems != 0){
+			if (PrevNumElems != 0 && PrevNumElems != NumElems){
+				// Note that the PrevNumElems != 0 precludes any issues with the i-1 below
+				if (!QUIET)
+					WriteOutput("The no. of elems of Field %s (%d) is not consistent with Field %s (%d)\n", 
+						FieldNamesVect[i].data(), NumElems,
+						FieldNamesVect[i-1].data(), PrevNumElems);
+				if (!NO_EXCEPT)
+					throw ExOps::EXCEPTION_INVALID_INPUT;
+				return 1;
+			}
+			else if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
+				if (!QUIET)
+					WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
+				if (!NO_EXCEPT)
+					throw ExOps::EXCEPTION_INVALID_INPUT;
+				return 1;
+			}
+			else{
+				int ElemSize = mxGetElementSize(tempmxArrayPtr);
+				StructFieldmxArrays.insert(
+					std::pair<std::string, pair<void*, size_t> >(
+						FieldNamesVect[i], 
+						pair<void*, size_t>(mxGetData(tempmxArrayPtr), ElemSize)
+					));
+				PrevNumElems = NumElems;
+			}
+		}
+		else if (IS_REQUIRED){
+			if (!QUIET)
+				WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
+			if (!NO_EXCEPT)
+				throw ExOps::EXCEPTION_INVALID_INPUT;
+			return 1;
+		}
+	}
+	// At this point PrevNumElems represents the number of elements in the arrays listed
+	VectorIn = MexVector<T>(PrevNumElems);
+	for (int i = 0; i < PrevNumElems; ++i){
+		struct_inp_fun(StructFieldmxArrays, VectorIn[i]);
+		// updating pointers to the next element
+		for (auto Elem : StructFieldmxArrays){
+			auto &CurrElem = StructFieldmxArrays[Elem.first];
+			CurrElem.first = (char *)CurrElem.first + CurrElem.second;
+		}
+	}
+	return 0;
+}
+
+// Taking structure as input (functors)
+template <typename T>
+inline int getInputfromStruct(
+	mxArray *InputStruct, const char* FieldName,
+	MexVector<T> &VectorIn,
+	std::function<void(StructArgTable &ArgumentVects, T &DestElem)> struct_inp_fun,
+	int nOptions = 0, ...){
+
+	// processing options for input
+	bool IS_REQUIRED = false;
+	bool NO_EXCEPT = false;
+	bool QUIET = false;
+	int  REQUIRED_SIZE = -1;
+
+	va_list OptionArray;
+	va_start(OptionArray, nOptions);
+	for (int i = 0; i < nOptions; ++i){
+		char *CurrOption = va_arg(OptionArray, char*);
+		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+			IS_REQUIRED = true;
+		}
+		else if (!_strcmpi("QUIET", CurrOption)){
+			QUIET = true;
+		}
+		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+			NO_EXCEPT = true;
+		}
+		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+			REQUIRED_SIZE = va_arg(OptionArray, int);
+		}
+	}
+	va_end(OptionArray);
+
+	// Processing Data
+	// converting Field Name into array of field names by splitting at '-'
+	std::string FieldNameString(FieldName);
+	MexVector<std::string> FieldNamesVect(0);
+	StructArgTable StructFieldmxArrays;
+	// Split the string into its components by delimeters ' -/,'
+	do{
+		int StrLen = FieldNameString.length();
+		size_t DelimPos = FieldNameString.find_last_of(" -/,");
+		string currentField;
+		if (DelimPos != std::string::npos){
+			currentField = FieldNameString.substr(DelimPos + 1);
+			FieldNameString.resize(DelimPos);
+		}
+		else{
+			currentField = FieldNameString;
+			FieldNameString = "";
+		}
+		if (currentField != ""){
+			FieldNamesVect.push_back(currentField);
+		}
+	} while (FieldNameString.length() != 0);
+
+	// For each valid field name stored in vector, add entry in map
+
+	size_t PrevNumElems = 0; // used to enforce condition that all are of equal size
+
+	for (int i = 0; i < FieldNamesVect.size(); ++i){
+		mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldNamesVect[i].data());
+		size_t NumElems = (tempmxArrayPtr != NULL) ? mxGetNumberOfElements(tempmxArrayPtr) : 0;
+
+		if (NumElems != 0){
+			if (PrevNumElems != 0 && PrevNumElems != NumElems){
+				// Note that the PrevNumElems != 0 precludes any issues with the i-1 below
+				if (!QUIET)
+					WriteOutput("The no. of elems of Field %s (%d) is not consistent with Field %s (%d)\n",
+					FieldNamesVect[i].data(), NumElems,
+					FieldNamesVect[i - 1].data(), PrevNumElems);
+				if (!NO_EXCEPT)
+					throw ExOps::EXCEPTION_INVALID_INPUT;
+				return 1;
+			}
+			else if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
+				if (!QUIET)
+					WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
+				if (!NO_EXCEPT)
+					throw ExOps::EXCEPTION_INVALID_INPUT;
+				return 1;
+			}
+			else{
+				int ElemSize = mxGetElementSize(tempmxArrayPtr);
+				StructFieldmxArrays.insert(
+					std::pair<std::string, pair<void*, size_t> >(
+					FieldNamesVect[i],
+					pair<void*, size_t>(mxGetData(tempmxArrayPtr), ElemSize)
+					));
+				PrevNumElems = NumElems;
+			}
+		}
+		else if (IS_REQUIRED){
+			if (!QUIET)
+				WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
+			if (!NO_EXCEPT)
+				throw ExOps::EXCEPTION_INVALID_INPUT;
+			return 1;
+		}
+	}
+	// At this point PrevNumElems represents the number of elements in the arrays listed
+	VectorIn = MexVector<T>(PrevNumElems);
+	for (int i = 0; i < PrevNumElems; ++i){
+		struct_inp_fun(StructFieldmxArrays, VectorIn[i]);
+		// updating pointers to the next element
+		for (auto Elem : StructFieldmxArrays){
+			auto &CurrElem = StructFieldmxArrays[Elem.first];
+			CurrElem.first = (char *)CurrElem.first + CurrElem.second;
+		}
+	}
+	return 0;
+}
+
+// Type Casting included (implicit)
+
+template <typename TypeSrc, typename TypeDest>
+inline int getInputfromStruct(
+	mxArray *InputStruct,
+	const char* FieldName,
+	MexVector<TypeDest> &VectorIn,
+	int nOptions = 0, ...){
+
+	// processing options for input
+	bool IS_REQUIRED = false;
+	bool NO_EXCEPT = false;
+	bool QUIET = false;
+	int  REQUIRED_SIZE = -1;
+
+	va_list OptionArray;
+	va_start(OptionArray, nOptions);
+	for (int i = 0; i < nOptions; ++i){
+		char *CurrOption = va_arg(OptionArray, char*);
+		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+			IS_REQUIRED = true;
+		}
+		else if (!_strcmpi("QUIET", CurrOption)){
+			QUIET = true;
+		}
+		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+			NO_EXCEPT = true;
+		}
+		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+			REQUIRED_SIZE = va_arg(OptionArray, int);
+		}
+	}
+	va_end(OptionArray);
+
+	// Processing Data
+	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
+		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
+		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
+			if (!QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
+			if (!NO_EXCEPT)
+				throw ExOps::EXCEPTION_INVALID_INPUT;
+			return 1;
+		}
+		else{
+			getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn);
+		}
+	}
+	else if (IS_REQUIRED){
+		if (!QUIET)
+			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
+		if (!NO_EXCEPT)
+			throw ExOps::EXCEPTION_INVALID_INPUT;
+		return 1;
+	}
+	return 0;
+}
+
+
+// Type Casting included (explicit)
+template <typename TypeSrc, typename TypeDest>
+inline int getInputfromStruct(
+	mxArray *InputStruct,
+	const char* FieldName,
+	MexVector<TypeDest> &VectorIn,
+	void(*casting_fun)(TypeSrc &SrcElem, TypeDest &DestElem),
+	int nOptions = 0, ...){
+
+	// processing options for input
+	bool IS_REQUIRED = false;
+	bool NO_EXCEPT = false;
+	bool QUIET = false;
+	int  REQUIRED_SIZE = -1;
+
+	va_list OptionArray;
+	va_start(OptionArray, nOptions);
+	for (int i = 0; i < nOptions; ++i){
+		char *CurrOption = va_arg(OptionArray, char*);
+		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+			IS_REQUIRED = true;
+		}
+		else if (!_strcmpi("QUIET", CurrOption)){
+			QUIET = true;
+		}
+		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+			NO_EXCEPT = true;
+		}
+		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+			REQUIRED_SIZE = va_arg(OptionArray, int);
+		}
+	}
+	va_end(OptionArray);
+
+	// Processing Data
+	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
+		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
+		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
+			if (!QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
+			if (!NO_EXCEPT)
+				throw ExOps::EXCEPTION_INVALID_INPUT;
+			return 1;
+		}
+		else{
+			getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn, casting_fun);
+		}
+	}
+	else if (IS_REQUIRED){
+		if (!QUIET)
+			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
+		if (!NO_EXCEPT)
+			throw ExOps::EXCEPTION_INVALID_INPUT;
+		return 1;
+	}
+	return 0;
+}
+
+// Type Casting included (explicit) (functors)
+template <typename TypeSrc, typename TypeDest>
+inline int getInputfromStruct(
+	mxArray *InputStruct,
+	const char* FieldName,
+	MexVector<TypeDest> &VectorIn,
+	std::function<void(TypeSrc &, TypeDest &)> casting_fun,
+	int nOptions = 0, ...){
+
+	// processing options for input
+	bool IS_REQUIRED = false;
+	bool NO_EXCEPT = false;
+	bool QUIET = false;
+	int  REQUIRED_SIZE = -1;
+
+	va_list OptionArray;
+	va_start(OptionArray, nOptions);
+	for (int i = 0; i < nOptions; ++i){
+		char *CurrOption = va_arg(OptionArray, char*);
+		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+			IS_REQUIRED = true;
+		}
+		else if (!_strcmpi("QUIET", CurrOption)){
+			QUIET = true;
+		}
+		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+			NO_EXCEPT = true;
+		}
+		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+			REQUIRED_SIZE = va_arg(OptionArray, int);
+		}
+	}
+	va_end(OptionArray);
+
+	// Processing Data
+	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
+		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
+		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
+			if (!QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
+			if (!NO_EXCEPT)
+				throw ExOps::EXCEPTION_INVALID_INPUT;
+			return 1;
+		}
+		else{
+			getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn, casting_fun);
+		}
+	}
+	else if (IS_REQUIRED){
+		if (!QUIET)
+			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
+		if (!NO_EXCEPT)
+			throw ExOps::EXCEPTION_INVALID_INPUT;
+		return 1;
+	}
+	return 0;
+}
 #endif
