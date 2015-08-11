@@ -99,6 +99,18 @@ template <typename T> inline void getInputfrommxArray(mxArray *InputArray, T &Sc
 	if (InputArray != NULL && !mxIsEmpty(InputArray))
 		ScalarIn = *reinterpret_cast<T *>(mxGetData(InputArray));
 }
+template <typename TypeSrc, typename TypeDest> 
+inline void getInputfrommxArray(mxArray *InputArray, TypeDest &ScalarIn){
+	if (InputArray != NULL && !mxIsEmpty(InputArray))
+		ScalarIn = (TypeDest)(*reinterpret_cast<TypeSrc *>(mxGetData(InputArray)));
+}
+template <typename TypeSrc, typename TypeDest>
+inline void getInputfrommxArray(mxArray *InputArray, TypeDest &ScalarIn,
+	std::function<TypeDest(TypeSrc &)> casting_func){
+	if (InputArray != NULL && !mxIsEmpty(InputArray))
+		ScalarIn = casting_func(*reinterpret_cast<TypeSrc *>(mxGetData(InputArray)));
+}
+
 
 template <typename T> inline void getInputfrommxArray(mxArray *InputArray, MexVector<T> &VectorIn){
 	if (InputArray != NULL && !mxIsEmpty(InputArray)){
@@ -167,11 +179,28 @@ inline void getInputfrommxArray(
 	}
 }
 
+// Scalar Input
 template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, T &ScalarIn, bool IS_REQUIRED = false, bool NO_EXCEPT = true){
 	
 	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
 	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr))
 		getInputfrommxArray(tempmxArrayPtr, ScalarIn);
+	else if (IS_REQUIRED){
+		WriteOutput("The field '%s' is either empty or non-existant", FieldName);
+		if (!NO_EXCEPT)
+			throw ExOps::EXCEPTION_INVALID_INPUT;
+		return 1;
+	}
+	return 0;
+}
+
+// Scalar Input (Type Casting)
+template <typename TypeSrc, typename TypeDest> 
+inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeDest &ScalarIn, bool IS_REQUIRED = false, bool NO_EXCEPT = true){
+
+	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr))
+		getInputfrommxArray<TypeSrc>(tempmxArrayPtr, ScalarIn);
 	else if (IS_REQUIRED){
 		WriteOutput("The field '%s' is either empty or non-existant", FieldName);
 		if (!NO_EXCEPT)
