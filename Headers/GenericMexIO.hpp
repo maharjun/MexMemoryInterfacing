@@ -95,6 +95,30 @@ inline void WriteOutput(char *Format, ...) {
 #endif
 }
 
+inline void StringSplit(const char* InputString, const char* DelimString, MexVector<std::string> &SplitStringVect,
+	bool includeBlanks = false){
+	
+	std::string tempInputString(InputString);
+	SplitStringVect.resize(0);
+
+	do{
+		size_t DelimPos = tempInputString.find_first_of(DelimString);
+		string currentSubString;
+		if (DelimPos != std::string::npos){
+			currentSubString = tempInputString.substr(0, DelimPos);
+			tempInputString = tempInputString.substr(DelimPos + 1);
+		}
+		else{
+			currentSubString = tempInputString;
+			tempInputString = "";
+		}
+
+		if (includeBlanks || currentSubString != ""){
+			SplitStringVect.push_back(currentSubString);
+		}
+	} while (tempInputString.length() != 0);
+}
+
 struct MexMemInputOps{
 	bool IS_REQUIRED;
 	bool NO_EXCEPT;
@@ -143,8 +167,28 @@ inline MexMemInputOps getInputOps(int nOptions, va_list Options){
 
 static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * FieldName, const MexMemInputOps & InputOps){
 	
-	// Processing Data
-	mxArrayPtr tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+	// Processing Struct Name Heirarchy
+	MexVector<std::string> NameHeirarchyVect;
+	mxArrayPtr tempmxArrayPtr = InputStruct;
+	StringSplit(FieldName, ".", NameHeirarchyVect);
+	
+	int NameHeirarchyDepth = NameHeirarchyVect.size();
+	for (int i = 0; i < NameHeirarchyDepth - 1; ++i){
+		tempmxArrayPtr = mxGetField(tempmxArrayPtr, 0, NameHeirarchyVect[i].data());
+		if (tempmxArrayPtr == nullptr || mxIsEmpty(tempmxArrayPtr) || mxGetClassID(tempmxArrayPtr) != mxSTRUCT_CLASS){
+			// If it is an invalid struct class
+			if (InputOps.IS_REQUIRED){
+				if (!InputOps.QUIET)
+					WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
+				if (!InputOps.NO_EXCEPT)
+					throw ExOps::EXCEPTION_INVALID_INPUT;
+				return nullptr;
+			}
+		}
+	}
+	
+	// Extracting and Validating Final Vector
+	tempmxArrayPtr = mxGetField(tempmxArrayPtr, 0, NameHeirarchyVect.last().data());
 	if (tempmxArrayPtr != nullptr && !mxIsEmpty(tempmxArrayPtr)){
 		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
 		if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems){
@@ -363,29 +407,13 @@ inline int getInputfromStruct(
 
 	// Processing Data
 	// converting Field Name into array of field names by splitting at '-'
-	std::string FieldNameString(FieldName);
 	MexVector<std::string> FieldNamesVect(0);
 	StructArgTable StructFieldmxArrays;
+
 	// Split the string into its components by delimeters ' -/,'
-	do{
-		int StrLen = FieldNameString.length();
-		size_t DelimPos = FieldNameString.find_last_of(" -/,");
-		string currentField;
-		if (DelimPos != std::string::npos){
-			currentField = FieldNameString.substr(DelimPos+1);
-			FieldNameString.resize(DelimPos);
-		}
-		else{
-			currentField = FieldNameString;
-			FieldNameString = "";
-		}
-		if (currentField != ""){
-			FieldNamesVect.push_back(currentField);
-		}
-	} while (FieldNameString.length() != 0);
+	StringSplit(FieldName, " -/,", FieldNamesVect);
 
 	// For each valid field name stored in vector, add entry in map
-
 	size_t PrevNumElems = 0; // used to enforce condition that all are of equal size
 
 	for (int i = 0; i < FieldNamesVect.size(); ++i){
@@ -462,29 +490,13 @@ inline int getInputfromStruct(
 
 	// Processing Data
 	// converting Field Name into array of field names by splitting at '-'
-	std::string FieldNameString(FieldName);
 	MexVector<std::string> FieldNamesVect(0);
 	StructArgTable StructFieldmxArrays;
+
 	// Split the string into its components by delimeters ' -/,'
-	do{
-		int StrLen = FieldNameString.length();
-		size_t DelimPos = FieldNameString.find_last_of(" -/,");
-		string currentField;
-		if (DelimPos != std::string::npos){
-			currentField = FieldNameString.substr(DelimPos + 1);
-			FieldNameString.resize(DelimPos);
-		}
-		else{
-			currentField = FieldNameString;
-			FieldNameString = "";
-		}
-		if (currentField != ""){
-			FieldNamesVect.push_back(currentField);
-		}
-	} while (FieldNameString.length() != 0);
+	StringSplit(FieldName, " -/,", FieldNamesVect);
 
 	// For each valid field name stored in vector, add entry in map
-
 	size_t PrevNumElems = 0; // used to enforce condition that all are of equal size
 
 	for (int i = 0; i < FieldNamesVect.size(); ++i){
