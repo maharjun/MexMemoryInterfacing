@@ -95,6 +95,40 @@ inline void WriteOutput(char *Format, ...) {
 #endif
 }
 
+struct MexMemInputOps{
+	bool IS_REQUIRED;
+	bool NO_EXCEPT;
+	bool QUIET;
+	int  REQUIRED_SIZE;
+
+	MexMemInputOps(){
+		IS_REQUIRED = false;
+		NO_EXCEPT = false;
+		QUIET = false;
+		REQUIRED_SIZE = -1;
+	}
+};
+
+inline MexMemInputOps getInputOps(int nOptions, va_list Options){
+	MexMemInputOps InputOps;
+	for (int i = 0; i < nOptions; ++i){
+		char *CurrOption = va_arg(Options, char*);
+		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+			InputOps.IS_REQUIRED = true;
+		}
+		else if (!_strcmpi("QUIET", CurrOption)){
+			InputOps.QUIET = true;
+		}
+		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+			InputOps.NO_EXCEPT = true;
+		}
+		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+			InputOps.REQUIRED_SIZE = va_arg(Options, int);
+		}
+	}
+	return InputOps;
+}
+
 template <typename T> inline void getInputfrommxArray(mxArray *InputArray, T &ScalarIn){
 	if (InputArray != NULL && !mxIsEmpty(InputArray))
 		ScalarIn = *reinterpret_cast<T *>(mxGetData(InputArray));
@@ -180,14 +214,24 @@ inline void getInputfrommxArray(
 }
 
 // Scalar Input
-template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, T &ScalarIn, bool IS_REQUIRED = false, bool NO_EXCEPT = true){
-	
+template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, T &ScalarIn, int nOptions = 0, ...){
+
+	// Getting Input Options
+	MexMemInputOps InputOps;
+
+	va_list OptionList;
+	va_start(OptionList, nOptions);
+	getInputOps(nOptions, OptionList);
+	va_end(OptionList);
+
 	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
+
 	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr))
 		getInputfrommxArray(tempmxArrayPtr, ScalarIn);
-	else if (IS_REQUIRED){
-		WriteOutput("The field '%s' is either empty or non-existant", FieldName);
-		if (!NO_EXCEPT)
+	else if (InputOps.IS_REQUIRED){
+		if (!InputOps.QUIET)
+			WriteOutput("The field '%s' is either empty or non-existant", FieldName);
+		if (!InputOps.NO_EXCEPT)
 			throw ExOps::EXCEPTION_INVALID_INPUT;
 		return 1;
 	}
@@ -196,14 +240,23 @@ template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const 
 
 // Scalar Input (Type Casting)
 template <typename TypeSrc, typename TypeDest> 
-inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeDest &ScalarIn, bool IS_REQUIRED = false, bool NO_EXCEPT = true){
+inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeDest &ScalarIn, int nOptions = 0, ...){
+
+	// Getting Input Options
+	MexMemInputOps InputOps;
+
+	va_list OptionList;
+	va_start(OptionList, nOptions);
+	getInputOps(nOptions, OptionList);
+	va_end(OptionList);
 
 	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
 	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr))
 		getInputfrommxArray<TypeSrc>(tempmxArrayPtr, ScalarIn);
-	else if (IS_REQUIRED){
-		WriteOutput("The field '%s' is either empty or non-existant", FieldName);
-		if (!NO_EXCEPT)
+	else if (InputOps.IS_REQUIRED){
+		if (!InputOps.QUIET)
+			WriteOutput("The field '%s' is either empty or non-existant", FieldName);
+		if (!InputOps.NO_EXCEPT)
 			throw ExOps::EXCEPTION_INVALID_INPUT;
 		return 1;
 	}
@@ -213,38 +266,21 @@ inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeD
 template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<T> &VectorIn, int nOptions = 0, ...){
 	
 	// processing options for input
-	bool IS_REQUIRED   = false;
-	bool NO_EXCEPT     = false;
-	bool QUIET         = false;
-	int  REQUIRED_SIZE = -1;
+	MexMemInputOps InputOps;
 
 	va_list OptionArray;
 	va_start(OptionArray, nOptions);
-	for (int i = 0; i < nOptions; ++i){
-		char *CurrOption = va_arg(OptionArray, char*);
-		if (!_strcmpi("IS_REQUIRED", CurrOption)){
-			IS_REQUIRED = true;
-		}
-		else if (!_strcmpi("QUIET", CurrOption)){
-			QUIET = true;
-		}
-		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
-			NO_EXCEPT = true;
-		}
-		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
-			REQUIRED_SIZE = va_arg(OptionArray, int);
-		}
-	}
+	InputOps = getInputOps(nOptions, OptionArray);
 	va_end(OptionArray);
 
 	// Processing Data
 	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
 	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
 		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
-		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
-			if (!QUIET)
-				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
-			if (!NO_EXCEPT)
+		if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems){
+			if (!InputOps.QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
+			if (!InputOps.NO_EXCEPT)
 				throw ExOps::EXCEPTION_INVALID_INPUT;
 			return 1; 
 		}
@@ -252,10 +288,10 @@ template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const 
 			getInputfrommxArray(tempmxArrayPtr, VectorIn);
 		}
 	}
-	else if(IS_REQUIRED){
-		if (!QUIET)
+	else if(InputOps.IS_REQUIRED){
+		if (!InputOps.QUIET)
 			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
-		if (!NO_EXCEPT)
+		if (!InputOps.NO_EXCEPT)
 			throw ExOps::EXCEPTION_INVALID_INPUT;
 		return 1;
 	}
@@ -275,28 +311,11 @@ inline int getInputfromStruct(
 	int nOptions = 0, ...){
 
 	// processing options for input
-	bool IS_REQUIRED = false;
-	bool NO_EXCEPT = false;
-	bool QUIET = false;
-	int  REQUIRED_SIZE = -1;
+	MexMemInputOps InputOps;
 
 	va_list OptionArray;
 	va_start(OptionArray, nOptions);
-	for (int i = 0; i < nOptions; ++i){
-		char *CurrOption = va_arg(OptionArray, char*);
-		if (!_strcmpi("IS_REQUIRED", CurrOption)){
-			IS_REQUIRED = true;
-		}
-		else if (!_strcmpi("QUIET", CurrOption)){
-			QUIET = true;
-		}
-		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
-			NO_EXCEPT = true;
-		}
-		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
-			REQUIRED_SIZE = va_arg(OptionArray, int);
-		}
-	}
+	InputOps = getInputOps(nOptions, OptionArray);
 	va_end(OptionArray);
 
 	// Processing Data
@@ -333,18 +352,18 @@ inline int getInputfromStruct(
 		if (NumElems != 0){
 			if (PrevNumElems != 0 && PrevNumElems != NumElems){
 				// Note that the PrevNumElems != 0 precludes any issues with the i-1 below
-				if (!QUIET)
+				if (!InputOps.QUIET)
 					WriteOutput("The no. of elems of Field %s (%d) is not consistent with Field %s (%d)\n", 
 						FieldNamesVect[i].data(), NumElems,
 						FieldNamesVect[i-1].data(), PrevNumElems);
-				if (!NO_EXCEPT)
+				if (!InputOps.NO_EXCEPT)
 					throw ExOps::EXCEPTION_INVALID_INPUT;
 				return 1;
 			}
-			else if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
-				if (!QUIET)
-					WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
-				if (!NO_EXCEPT)
+			else if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems){
+				if (!InputOps.QUIET)
+					WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
+				if (!InputOps.NO_EXCEPT)
 					throw ExOps::EXCEPTION_INVALID_INPUT;
 				return 1;
 			}
@@ -358,10 +377,10 @@ inline int getInputfromStruct(
 				PrevNumElems = NumElems;
 			}
 		}
-		else if (IS_REQUIRED){
-			if (!QUIET)
+		else if (InputOps.IS_REQUIRED){
+			if (!InputOps.QUIET)
 				WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
-			if (!NO_EXCEPT)
+			if (!InputOps.NO_EXCEPT)
 				throw ExOps::EXCEPTION_INVALID_INPUT;
 			return 1;
 		}
@@ -388,28 +407,11 @@ inline int getInputfromStruct(
 	int nOptions = 0, ...){
 
 	// processing options for input
-	bool IS_REQUIRED = false;
-	bool NO_EXCEPT = false;
-	bool QUIET = false;
-	int  REQUIRED_SIZE = -1;
+	MexMemInputOps InputOps;
 
 	va_list OptionArray;
 	va_start(OptionArray, nOptions);
-	for (int i = 0; i < nOptions; ++i){
-		char *CurrOption = va_arg(OptionArray, char*);
-		if (!_strcmpi("IS_REQUIRED", CurrOption)){
-			IS_REQUIRED = true;
-		}
-		else if (!_strcmpi("QUIET", CurrOption)){
-			QUIET = true;
-		}
-		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
-			NO_EXCEPT = true;
-		}
-		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
-			REQUIRED_SIZE = va_arg(OptionArray, int);
-		}
-	}
+	InputOps = getInputOps(nOptions, OptionArray);
 	va_end(OptionArray);
 
 	// Processing Data
@@ -446,18 +448,18 @@ inline int getInputfromStruct(
 		if (NumElems != 0){
 			if (PrevNumElems != 0 && PrevNumElems != NumElems){
 				// Note that the PrevNumElems != 0 precludes any issues with the i-1 below
-				if (!QUIET)
+				if (!InputOps.QUIET)
 					WriteOutput("The no. of elems of Field %s (%d) is not consistent with Field %s (%d)\n",
 					FieldNamesVect[i].data(), NumElems,
 					FieldNamesVect[i - 1].data(), PrevNumElems);
-				if (!NO_EXCEPT)
+				if (!InputOps.NO_EXCEPT)
 					throw ExOps::EXCEPTION_INVALID_INPUT;
 				return 1;
 			}
-			else if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
-				if (!QUIET)
-					WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
-				if (!NO_EXCEPT)
+			else if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems){
+				if (!InputOps.QUIET)
+					WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
+				if (!InputOps.NO_EXCEPT)
 					throw ExOps::EXCEPTION_INVALID_INPUT;
 				return 1;
 			}
@@ -471,10 +473,10 @@ inline int getInputfromStruct(
 				PrevNumElems = NumElems;
 			}
 		}
-		else if (IS_REQUIRED){
-			if (!QUIET)
+		else if (InputOps.IS_REQUIRED){
+			if (!InputOps.QUIET)
 				WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
-			if (!NO_EXCEPT)
+			if (!InputOps.NO_EXCEPT)
 				throw ExOps::EXCEPTION_INVALID_INPUT;
 			return 1;
 		}
@@ -502,38 +504,21 @@ inline int getInputfromStruct(
 	int nOptions = 0, ...){
 
 	// processing options for input
-	bool IS_REQUIRED = false;
-	bool NO_EXCEPT = false;
-	bool QUIET = false;
-	int  REQUIRED_SIZE = -1;
+	MexMemInputOps InputOps;
 
 	va_list OptionArray;
 	va_start(OptionArray, nOptions);
-	for (int i = 0; i < nOptions; ++i){
-		char *CurrOption = va_arg(OptionArray, char*);
-		if (!_strcmpi("IS_REQUIRED", CurrOption)){
-			IS_REQUIRED = true;
-		}
-		else if (!_strcmpi("QUIET", CurrOption)){
-			QUIET = true;
-		}
-		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
-			NO_EXCEPT = true;
-		}
-		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
-			REQUIRED_SIZE = va_arg(OptionArray, int);
-		}
-	}
+	InputOps = getInputOps(nOptions, OptionArray);
 	va_end(OptionArray);
 
 	// Processing Data
 	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
 	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
 		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
-		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
-			if (!QUIET)
-				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
-			if (!NO_EXCEPT)
+		if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems){
+			if (!InputOps.QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
+			if (!InputOps.NO_EXCEPT)
 				throw ExOps::EXCEPTION_INVALID_INPUT;
 			return 1;
 		}
@@ -541,10 +526,10 @@ inline int getInputfromStruct(
 			getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn);
 		}
 	}
-	else if (IS_REQUIRED){
-		if (!QUIET)
+	else if (InputOps.IS_REQUIRED){
+		if (!InputOps.QUIET)
 			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
-		if (!NO_EXCEPT)
+		if (!InputOps.NO_EXCEPT)
 			throw ExOps::EXCEPTION_INVALID_INPUT;
 		return 1;
 	}
@@ -562,38 +547,21 @@ inline int getInputfromStruct(
 	int nOptions = 0, ...){
 
 	// processing options for input
-	bool IS_REQUIRED = false;
-	bool NO_EXCEPT = false;
-	bool QUIET = false;
-	int  REQUIRED_SIZE = -1;
+	MexMemInputOps InputOps;
 
 	va_list OptionArray;
 	va_start(OptionArray, nOptions);
-	for (int i = 0; i < nOptions; ++i){
-		char *CurrOption = va_arg(OptionArray, char*);
-		if (!_strcmpi("IS_REQUIRED", CurrOption)){
-			IS_REQUIRED = true;
-		}
-		else if (!_strcmpi("QUIET", CurrOption)){
-			QUIET = true;
-		}
-		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
-			NO_EXCEPT = true;
-		}
-		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
-			REQUIRED_SIZE = va_arg(OptionArray, int);
-		}
-	}
+	InputOps = getInputOps(nOptions, OptionArray);
 	va_end(OptionArray);
 
 	// Processing Data
 	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
 	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
 		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
-		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
-			if (!QUIET)
-				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
-			if (!NO_EXCEPT)
+		if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems){
+			if (!InputOps.QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
+			if (!InputOps.NO_EXCEPT)
 				throw ExOps::EXCEPTION_INVALID_INPUT;
 			return 1;
 		}
@@ -601,10 +569,10 @@ inline int getInputfromStruct(
 			getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn, casting_fun);
 		}
 	}
-	else if (IS_REQUIRED){
-		if (!QUIET)
+	else if (InputOps.IS_REQUIRED){
+		if (!InputOps.QUIET)
 			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
-		if (!NO_EXCEPT)
+		if (!InputOps.NO_EXCEPT)
 			throw ExOps::EXCEPTION_INVALID_INPUT;
 		return 1;
 	}
@@ -621,38 +589,21 @@ inline int getInputfromStruct(
 	int nOptions = 0, ...){
 
 	// processing options for input
-	bool IS_REQUIRED = false;
-	bool NO_EXCEPT = false;
-	bool QUIET = false;
-	int  REQUIRED_SIZE = -1;
+	MexMemInputOps InputOps;
 
 	va_list OptionArray;
 	va_start(OptionArray, nOptions);
-	for (int i = 0; i < nOptions; ++i){
-		char *CurrOption = va_arg(OptionArray, char*);
-		if (!_strcmpi("IS_REQUIRED", CurrOption)){
-			IS_REQUIRED = true;
-		}
-		else if (!_strcmpi("QUIET", CurrOption)){
-			QUIET = true;
-		}
-		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
-			NO_EXCEPT = true;
-		}
-		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
-			REQUIRED_SIZE = va_arg(OptionArray, int);
-		}
-	}
+	InputOps = getInputOps(nOptions, OptionArray);
 	va_end(OptionArray);
 
 	// Processing Data
 	mxArray* tempmxArrayPtr = mxGetField(InputStruct, 0, FieldName);
 	if (tempmxArrayPtr != NULL && !mxIsEmpty(tempmxArrayPtr)){
 		size_t NumElems = mxGetNumberOfElements(tempmxArrayPtr);
-		if (REQUIRED_SIZE != -1 && REQUIRED_SIZE != NumElems){
-			if (!QUIET)
-				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, REQUIRED_SIZE, NumElems);
-			if (!NO_EXCEPT)
+		if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems){
+			if (!InputOps.QUIET)
+				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
+			if (!InputOps.NO_EXCEPT)
 				throw ExOps::EXCEPTION_INVALID_INPUT;
 			return 1;
 		}
@@ -660,10 +611,10 @@ inline int getInputfromStruct(
 			getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn, casting_fun);
 		}
 	}
-	else if (IS_REQUIRED){
-		if (!QUIET)
+	else if (InputOps.IS_REQUIRED){
+		if (!InputOps.QUIET)
 			WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
-		if (!NO_EXCEPT)
+		if (!InputOps.NO_EXCEPT)
 			throw ExOps::EXCEPTION_INVALID_INPUT;
 		return 1;
 	}
