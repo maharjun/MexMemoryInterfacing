@@ -258,7 +258,7 @@ inline void getInputfrommxArray(
 	if (InputArray != nullptr && !mxIsEmpty(InputArray)){
 		size_t NumElems = mxGetNumberOfElements(InputArray);
 		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
-		VectorIn = MexVector<TypeDest>(NumElems);
+		VectorIn.resize(NumElems);
 		for (int i = 0; i < NumElems; ++i){
 			casting_fun(tempArrayPtr[i], VectorIn[i]);
 		}
@@ -274,7 +274,7 @@ inline void getInputfrommxArray(
 	if (InputArray != nullptr && !mxIsEmpty(InputArray)){
 		size_t NumElems = mxGetNumberOfElements(InputArray);
 		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
-		VectorIn = MexVector<TypeDest>(NumElems);
+		VectorIn.resize(NumElems);
 		for (int i = 0; i < NumElems; ++i){
 			casting_fun(tempArrayPtr[i], VectorIn[i]);
 		}
@@ -289,7 +289,7 @@ inline void getInputfrommxArray(
 	if (InputArray != nullptr && !mxIsEmpty(InputArray)){
 		size_t NumElems = mxGetNumberOfElements(InputArray);
 		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
-		VectorIn = MexVector<TypeDest>(NumElems);
+		VectorIn.resize(NumElems); // This will not erase old data
 		for (int i = 0; i < NumElems; ++i){
 			tempArrayPtr[i] = (TypeDest)VectorIn[i];
 		}
@@ -459,7 +459,7 @@ inline int getInputfromStruct(
 		}
 	}
 	// At this point PrevNumElems represents the number of elements in the arrays listed
-	VectorIn = MexVector<T>(PrevNumElems);
+	VectorIn.resize(PrevNumElems);
 	for (int i = 0; i < PrevNumElems; ++i){
 		struct_inp_fun(StructFieldmxArrays, VectorIn[i]);
 		// updating pointers to the next element
@@ -542,7 +542,7 @@ inline int getInputfromStruct(
 		}
 	}
 	// At this point PrevNumElems represents the number of elements in the arrays listed
-	VectorIn = MexVector<T>(PrevNumElems);
+	VectorIn.resize(PrevNumElems); // Does not Delete Previous Elements
 	for (int i = 0; i < PrevNumElems; ++i){
 		struct_inp_fun(StructFieldmxArrays, VectorIn[i]);
 		// updating pointers to the next element
