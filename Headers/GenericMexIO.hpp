@@ -213,6 +213,36 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 	return nullptr;
 }
 
+template<typename TypeRHS, typename TypeLHS>
+inline typename MexVector<TypeLHS>::iterator MexTransform(
+	typename MexVector<TypeRHS>::iterator RHSVectorBeg, 
+	typename MexVector<TypeRHS>::iterator RHSVectorEnd,
+	typename MexVector<TypeLHS>::iterator LHSVectorBeg,
+	std::function<void(TypeLHS &, TypeRHS &)> transform_func){
+
+	auto RHSIter = RHSVectorBeg;
+	auto LHSIter = LHSVectorBeg;
+	for (; RHSIter != RHSVectorEnd; ++RHSIter, ++LHSIter){
+		transform_func(*LHSIter , *RHSIter);
+	}
+	return LHSIter;
+}
+
+template<typename TypeRHS, typename TypeLHS >
+inline typename MexVector<TypeLHS>::iterator MexTransform(
+	typename MexVector<TypeRHS>::iterator RHSVectorBeg, 
+	typename MexVector<TypeRHS>::iterator RHSVectorEnd,
+	typename MexVector<TypeLHS>::iterator LHSVectorBeg,
+	typename std::function<TypeLHS(TypeRHS &)> transform_func){
+
+	auto RHSIter = RHSVectorBeg;
+	auto LHSIter = LHSVectorBeg;
+	for (; RHSIter != RHSVectorEnd; ++RHSIter, ++LHSIter){
+		*LHSIter = transform_func(*RHSIter);
+	}
+	return LHSIter;
+}
+
 template <typename T> inline void getInputfrommxArray(mxArray *InputArray, T &ScalarIn){
 	if (InputArray != nullptr && !mxIsEmpty(InputArray))
 		ScalarIn = *reinterpret_cast<T *>(mxGetData(InputArray));
