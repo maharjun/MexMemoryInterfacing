@@ -8,7 +8,7 @@
 #include <functional>
 #include "MexMem.hpp"
 
-typedef std::unordered_map<string, pair<void*, size_t> > StructArgTable;
+typedef std::unordered_map<std::string, std::pair<void*, size_t> > StructArgTable;
 
 template<typename T> inline mxArrayPtr assignmxArray(T &ScalarOut, mxClassID ClassID){
 
@@ -103,7 +103,7 @@ inline void StringSplit(const char* InputString, const char* DelimString, MexVec
 
 	do{
 		size_t DelimPos = tempInputString.find_first_of(DelimString);
-		string currentSubString;
+		std::string currentSubString;
 		if (DelimPos != std::string::npos){
 			currentSubString = tempInputString.substr(0, DelimPos);
 			tempInputString = tempInputString.substr(DelimPos + 1);

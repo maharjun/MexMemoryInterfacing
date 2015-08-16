@@ -1,3 +1,6 @@
+#ifndef LAMBDA_TO_FUNCTION
+#define LAMBDA_TO_FUNCTION
+
 #include <iostream>
 #include <functional>
 
@@ -19,3 +22,5 @@ FFL(F const &func)
 { // Function from lambda !
 	return typename memfun_type<decltype(&F::operator())>::type(func);
 }
+
+#endif
