@@ -6,6 +6,7 @@
 #include <cstdarg>
 #include <unordered_map>
 #include <functional>
+#include <cstdio>
 #include "MexMem.hpp"
 
 typedef std::unordered_map<std::string, std::pair<void*, size_t> > StructArgTable;
@@ -182,8 +183,8 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 					WriteOutput("The required field '%s' is either empty or non-existant.\n", FieldName);
 				if (!InputOps.NO_EXCEPT)
 					throw ExOps::EXCEPTION_INVALID_INPUT;
-				return nullptr;
 			}
+			return nullptr;
 		}
 	}
 	
@@ -210,6 +211,36 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 		return nullptr;
 	}
 	return nullptr;
+}
+
+template<typename TypeRHS, typename TypeLHS>
+inline typename MexVector<TypeLHS>::iterator MexTransform(
+	typename MexVector<TypeRHS>::iterator RHSVectorBeg, 
+	typename MexVector<TypeRHS>::iterator RHSVectorEnd,
+	typename MexVector<TypeLHS>::iterator LHSVectorBeg,
+	std::function<void(TypeLHS &, TypeRHS &)> transform_func){
+
+	auto RHSIter = RHSVectorBeg;
+	auto LHSIter = LHSVectorBeg;
+	for (; RHSIter != RHSVectorEnd; ++RHSIter, ++LHSIter){
+		transform_func(*LHSIter , *RHSIter);
+	}
+	return LHSIter;
+}
+
+template<typename TypeRHS, typename TypeLHS >
+inline typename MexVector<TypeLHS>::iterator MexTransform(
+	typename MexVector<TypeRHS>::iterator RHSVectorBeg, 
+	typename MexVector<TypeRHS>::iterator RHSVectorEnd,
+	typename MexVector<TypeLHS>::iterator LHSVectorBeg,
+	typename std::function<TypeLHS(TypeRHS &)> transform_func){
+
+	auto RHSIter = RHSVectorBeg;
+	auto LHSIter = LHSVectorBeg;
+	for (; RHSIter != RHSVectorEnd; ++RHSIter, ++LHSIter){
+		*LHSIter = transform_func(*RHSIter);
+	}
+	return LHSIter;
 }
 
 template <typename T> inline void getInputfrommxArray(mxArray *InputArray, T &ScalarIn){
