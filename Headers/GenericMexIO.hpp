@@ -8,6 +8,7 @@
 #include <functional>
 #include <cstdio>
 #include "MexMem.hpp"
+#include "LambdaToFunction.hpp"
 
 typedef std::unordered_map<std::string, std::pair<void*, size_t> > StructArgTable;
 
@@ -328,14 +329,14 @@ inline void getInputfrommxArray(
 }
 
 // Scalar Input
-template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, T &ScalarIn, int nOptions = 0, ...){
+template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, NonDeduc(T) &ScalarIn, int nOptions = 0, ...){
 
 	// Getting Input Options
 	MexMemInputOps InputOps;
 
 	va_list OptionList;
 	va_start(OptionList, nOptions);
-	getInputOps(nOptions, OptionList);
+	InputOps = getInputOps(nOptions, OptionList);
 	va_end(OptionList);
 
 	InputOps.REQUIRED_SIZE = -1;
@@ -359,7 +360,7 @@ inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeD
 
 	va_list OptionList;
 	va_start(OptionList, nOptions);
-	getInputOps(nOptions, OptionList);
+	InputOps = getInputOps(nOptions, OptionList);
 	va_end(OptionList);
 
 	InputOps.REQUIRED_SIZE = -1;
@@ -373,8 +374,9 @@ inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeD
 		return 1;
 	}
 }
+
 // MexVector<T>
-template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<T> &VectorIn, int nOptions = 0, ...){
+template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<NonDeduc(T)> &VectorIn, int nOptions = 0, ...){
 	
 	// processing options for input
 	MexMemInputOps InputOps;
@@ -399,7 +401,7 @@ template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const 
 // This code is completely the same as the earlier one Except for 
 // additional type checking, as the part that is different uses the 
 // templated call to getInputfrommxArray making all the code identical
-template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<MexVector<T> > &VectorIn, int nOptions = 0, ...){
+template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<MexVector<NonDeduc(T)> > &VectorIn, int nOptions = 0, ...){
 
 	// processing options for input
 	MexMemInputOps InputOps;

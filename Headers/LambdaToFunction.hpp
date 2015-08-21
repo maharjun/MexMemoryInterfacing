@@ -3,6 +3,9 @@
 
 #include <iostream>
 #include <functional>
+#include <type_traits>
+
+#define NonDeduc(T) typename std::decay< T >::type
 
 template<typename T>
 struct memfun_type
