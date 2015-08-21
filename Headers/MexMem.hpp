@@ -3,6 +3,7 @@
 #include <xutility>
 #include <matrix.h>
 #include <type_traits>
+#include <chrono>
 
 typedef mxArray* mxArrayPtr;
 
@@ -20,14 +21,41 @@ struct ExOps{
 
 class MemCounter{
 	static size_t MemUsageCount;
+	static size_t MemUsageLimitVal;
+	static size_t AccountOpeningKey;
 public:
-	const static size_t MemUsageLimit;
+	const static size_t &MemUsageLimit;
 
 	template<typename T>
 	friend class MexVector;
 
 	template<typename T>
 	friend class MexMatrix;
+
+	static size_t OpenMemAccount(size_t MemUsageLim){
+		if (MemUsageLimitVal == 0xFFFFFFFFFFFFFFFF){
+			MemUsageLimitVal = MemUsageLim;
+			MemUsageCount = 0;
+			do{
+				AccountOpeningKey = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			} while (AccountOpeningKey == 0);
+			return AccountOpeningKey;
+		}
+		else{
+			return 0;
+		}
+	}
+
+	static size_t CloseMemAccount(size_t AccOpenKey){
+		if (AccountOpeningKey == AccOpenKey && AccountOpeningKey != 0){
+			AccountOpeningKey = 0;
+			MemUsageLimitVal = 0xFFFFFFFFFFFFFFFF;
+			return 0;
+		}
+		else{
+			return 1;
+		}
+	}
 };
 
 template<typename T>
