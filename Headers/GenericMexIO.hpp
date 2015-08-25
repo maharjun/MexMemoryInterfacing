@@ -559,18 +559,18 @@ inline int getInputfromStruct(
 			// Store the pointer and data size for current field
 			int ElemSize = mxGetElementSize(StructFieldPtr);
 			StructFieldmxArrays.insert(
-				std::pair<std::string, pair<void*, size_t> >(
+				std::pair<std::string, std::pair<void*, size_t> >(
 				FieldNamesVect[i],
-				pair<void*, size_t>(mxGetData(StructFieldPtr), ElemSize)
+				std::pair<void*, size_t>(mxGetData(StructFieldPtr), ElemSize)
 				));
 			PrevNumElems = NumElems;
 		}
 		else{
 			// Store the null pointer and 0 size for current field
 			StructFieldmxArrays.insert(
-				std::pair<std::string, pair<void*, size_t> >(
+				std::pair<std::string, std::pair<void*, size_t> >(
 				FieldNamesVect[i],
-				pair<void*, size_t>(nullptr, 0)
+				std::pair<void*, size_t>(nullptr, 0)
 			));
 		}
 	}
