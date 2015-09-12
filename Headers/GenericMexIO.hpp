@@ -94,7 +94,6 @@ inline void WriteOutput(char *Format, ...) {
 	mexPrintf(bufferFinal);
 	mexEvalString("drawnow();");
 #elif defined MEX_EXE
-#undef printf
 	std::printf(bufferFinal);
 	std::fflush(stdout);
 #endif
@@ -177,6 +176,10 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 	mxArrayPtr tempmxArrayPtr = InputStruct;
 	StringSplit(FieldName, ".", NameHeirarchyVect);
 	
+	// Validating wether InputStruct is not nullptr
+	if (InputStruct == nullptr)
+		return nullptr;
+
 	int NameHeirarchyDepth = NameHeirarchyVect.size();
 	for (int i = 0; i < NameHeirarchyDepth - 1; ++i){
 		tempmxArrayPtr = mxGetField(tempmxArrayPtr, 0, NameHeirarchyVect[i].data());
