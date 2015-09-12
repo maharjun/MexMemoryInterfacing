@@ -3,10 +3,13 @@
 
 #include <matrix.h>
 #include <mex.h>
+#undef printf
+
 #include <cstdarg>
 #include <unordered_map>
 #include <functional>
 #include <cstdio>
+
 #include "MexMem.hpp"
 #include "LambdaToFunction.hpp"
 
