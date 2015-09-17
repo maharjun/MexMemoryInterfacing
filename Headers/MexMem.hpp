@@ -307,9 +307,9 @@ public:
 			if (Array_Beg != NULL){
 				// This is special bcuz reallocation requires (currCapacity + Cap)
 				// Locations to be free but increases memory by only (Cap - currCapacity)
-				size_t NumExtraBytes = (Cap)*sizeof(T);
+				size_t NumExtraBytes = (Cap - currCapacity)*sizeof(T);
 				if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
-					MemCounter::MemUsageCount += (Cap - currCapacity)*sizeof(T);
+					MemCounter::MemUsageCount += NumExtraBytes;
 					Temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, Cap*sizeof(T)));
 				}
 				else{
@@ -413,14 +413,9 @@ public:
 				}
 			
 			T* Temp;
-			size_t NumExtraBytes = (currSize)*sizeof(T);
-			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
-				MemCounter::MemUsageCount -= (this->capacity() - currSize)*sizeof(T);
-				Temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, currSize*sizeof(T)));
-			}
-			else{
-				throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
-			}
+			size_t NumExtraBytes = (this->capacity() - currSize)*sizeof(T);
+			MemCounter::MemUsageCount -= NumExtraBytes;
+			Temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, currSize*sizeof(T)));
 
 			if (currSize > 0){
 				if (Temp != NULL)
@@ -767,6 +762,7 @@ public:
 		if (!isCurrentMemExternal){
 			if (NRows*NCols > 0){
 				T* Temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, NRows*NCols*sizeof(T)));
+				MemCounter::MemUsageCount -= (this->Capacity - this->NRows*this->NCols)*sizeof(T);
 				if (Temp != NULL)
 					Array_Beg = Temp;
 				else
