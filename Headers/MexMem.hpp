@@ -289,6 +289,19 @@ public:
 		}
 		Array_Last += Increment;
 	}
+	inline T pop_back() {
+		T tempStorage;
+		if (!this->isCurrentMemExternal) {
+			if (this->size() > 0) {
+				tempStorage = *(Array_Last - 1);
+				Array_Last--;
+			}
+			return tempStorage;
+		}
+		else {
+			throw ExOps::EXCEPTION_EXTMEM_MOD;
+		}
+	}
 	inline void copyArray(size_t Position, T* ArrBegin, size_t NumElems) const{
 		if (Position + NumElems > this->size()){
 			throw ExOps::EXCEPTION_CONST_MOD;
