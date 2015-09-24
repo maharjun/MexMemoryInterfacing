@@ -614,7 +614,7 @@ inline int getInputfromStruct(
 	// Processing Data
 	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
-		getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn);
+		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn);
 		return 0;
 	}
 	else{
@@ -643,7 +643,7 @@ inline int getInputfromStruct(
 	// Processing Data
 	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
-		getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn, casting_fun);
+		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn, casting_fun);
 		return 0;
 	}
 	else{
@@ -671,7 +671,7 @@ inline int getInputfromStruct(
 	// Processing Data
 	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
-		getInputfrommxArray<TypeSrc, TypeDest>(tempmxArrayPtr, VectorIn, casting_fun);
+		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn, casting_fun);
 		return 0;
 	}
 	else{
