@@ -69,23 +69,19 @@ template<typename T> inline mxArrayPtr assignmxArray(MexVector<MexVector<T> > &V
 	return ReturnPointer;
 }
 
-inline void WriteOutput(char *Format, ...) {
+inline void vWriteOutput(char *Format, std::va_list Args) {
 	char buffertemp[256], bufferFinal[256];
-	std::va_list Args;
-	va_start(Args, Format);
-	
-	vsnprintf_s(buffertemp, 256, Format, Args);
-	va_end(Args);
+	vsnprintf(buffertemp, 256, Format, Args);
 
 	char* tempIter = buffertemp;
 	char* FinalIter = bufferFinal;
-	for (; *tempIter != 0; ++tempIter, ++FinalIter){
-		if (*tempIter == '%'){
+	for (; *tempIter != 0; ++tempIter, ++FinalIter) {
+		if (*tempIter == '%') {
 			*FinalIter = '%';
 			++FinalIter;
 			*FinalIter = '%';
 		}
-		else{
+		else {
 			*FinalIter = *tempIter;
 		}
 	}
@@ -97,6 +93,23 @@ inline void WriteOutput(char *Format, ...) {
 	std::printf(bufferFinal);
 	std::fflush(stdout);
 #endif
+}
+
+inline void WriteOutput(char *Format, ...) {
+	std::va_list Args;
+	va_start(Args, Format);
+	vWriteOutput(Format, Args);
+	va_end(Args);
+}
+
+template <typename ExType>
+inline void WriteException(ExType Exception, char *Format, ...) {
+	std::va_list Args;
+	va_start(Args, Format);
+	vWriteOutput(Format, Args);
+	va_end(Args);
+
+	throw Exception;
 }
 
 inline void StringSplit(const char* InputString, const char* DelimString, MexVector<std::string> &SplitStringVect,
