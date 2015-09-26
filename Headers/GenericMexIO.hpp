@@ -235,9 +235,9 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 
 template<typename TypeRHS, typename TypeLHS>
 inline typename MexVector<TypeLHS>::iterator MexTransform(
-	typename MexVector<TypeRHS>::iterator RHSVectorBeg, 
-	typename MexVector<TypeRHS>::iterator RHSVectorEnd,
-	typename MexVector<TypeLHS>::iterator LHSVectorBeg,
+	typename MexVector<TypeRHS>::iterator const RHSVectorBeg, 
+	typename MexVector<TypeRHS>::iterator const RHSVectorEnd,
+	typename MexVector<TypeLHS>::iterator const LHSVectorBeg,
 	std::function<void(TypeLHS &, TypeRHS &)> transform_func){
 
 	auto RHSIter = RHSVectorBeg;
