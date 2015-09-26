@@ -771,6 +771,86 @@ public:
 			*j = std::move(Val);
 		}
 	}
+
+	inline void reserveRows(size_t NewNRows) {
+		// this is a bit shitty as it basically deletes all previous values
+		size_t NewCapacity = NewNRows*NCols;
+		if (!isCurrentMemExternal && NewCapacity > Capacity) {
+			T* temp;
+			size_t NumExtraBytes = (NewCapacity - Capacity) * sizeof(T);
+			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit) {
+				MemCounter::MemUsageCount += NumExtraBytes;
+				if (Array_Beg == NULL)
+					temp = reinterpret_cast<T*>(mxCalloc(NewCapacity, sizeof(T)));
+				else
+					temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, NewCapacity*sizeof(T)));
+			}
+			else {
+				throw ExOps::EXCEPTION_MEM_FULL;
+			}
+
+			if (temp != NULL) {
+				Array_Beg = temp;
+				for (int i = Capacity; i < NewCapacity; ++i) {
+					new (Array_Beg + i) T;	// Defult constructing memory locations.
+				}
+				Capacity = NewCapacity;
+			}
+			else
+				throw ExOps::EXCEPTION_MEM_FULL; // Full memory
+		}
+		else if (isCurrentMemExternal)
+			throw ExOps::EXCEPTION_EXTMEM_MOD;	//Attempted reallocation of external memory
+	}
+	inline void resizeRows(size_t NewNRows) {
+		size_t NewSize = NewNRows * NCols;
+		if (NewSize > Capacity && !isCurrentMemExternal) {
+			reserveRows(NewNRows);
+		}
+		else if (isCurrentMemExternal) {
+			throw ExOps::EXCEPTION_EXTMEM_MOD;	//Attempted resizing of External memory
+		}
+		NRows = NewNRows;
+	}
+	inline void resizeRows(size_t NewNRows, const MexVector<T> &RowVal) {
+		size_t PrevSize = NRows * NCols;
+		size_t NewSize  = NewNRows * NCols;
+		resizeRows(NewNRows);
+		for (size_t j = PrevSize/NCols; j < NewNRows; ++j) {
+			this->operator[](j) = RowVal;
+		}
+	}
+	inline void push_row(const MexVector<T> &NewRow) {
+		size_t NewCapacity = (1 + NRows)*NCols;
+		if (NewCapacity > Capacity) {
+			size_t CurrNRows = NRows;
+			CurrNRows = CurrNRows ? CurrNRows : 1;
+			while (CurrNRows*NCols <= NewCapacity) {
+				CurrNRows += ((CurrNRows >> 2) + (CurrNRows >> 4) + 1);
+			}
+			reserveRows(CurrNRows);
+		}
+		NRows += 1;
+
+		this->operator[](NRows - 1) = NewRow;
+	}
+	inline void push_row_size(size_t NumExtraRows) {
+		size_t NewCapacity = (NumExtraRows + NRows)*NCols;
+		if (NewCapacity > Capacity) {
+			size_t CurrMaxNRows = Capacity / NCols;
+			CurrMaxNRows = CurrMaxNRows ? CurrMaxNRows : 1;
+			while (CurrMaxNRows*NCols <= NewCapacity) {
+				CurrMaxNRows += ((CurrMaxNRows >> 2) + (CurrMaxNRows >> 4) + 1);
+			}
+			reserveRows(CurrMaxNRows);
+		}
+		NRows += NumExtraRows;
+	}
+	inline const MexVector<T> &lastRow() {
+		RowReturnVector.assign(NCols, Array_Beg + (NRows-1)*NCols, false);
+		return  RowReturnVector;
+	}
+
 	inline void trim(){
 		if (!isCurrentMemExternal){
 			if (NRows*NCols > 0){
