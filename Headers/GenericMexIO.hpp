@@ -29,13 +29,15 @@ template<typename T> inline mxArrayPtr assignmxArray(T &ScalarOut, mxClassID Cla
 	return ReturnPointer;
 }
 
-template<typename T> inline mxArrayPtr assignmxArray(MexMatrix<T> &VectorOut, mxClassID ClassID){
+template<typename T> inline mxArrayPtr assignmxArray(MexMatrix<T> &MatrixOut, mxClassID ClassID){
 
 	mxArrayPtr ReturnPointer = mxCreateNumericMatrix_730(0, 0, ClassID, mxREAL);
-	if (VectorOut.ncols() && VectorOut.nrows()){
-		mxSetM(ReturnPointer, VectorOut.ncols());
-		mxSetN(ReturnPointer, VectorOut.nrows());
-		mxSetData(ReturnPointer, VectorOut.releaseArray());
+	MatrixOut.trim();
+
+	if (MatrixOut.ncols() && MatrixOut.nrows()){
+		mxSetM(ReturnPointer, MatrixOut.ncols());
+		mxSetN(ReturnPointer, MatrixOut.nrows());
+		mxSetData(ReturnPointer, MatrixOut.releaseArray());
 	}
 
 	return ReturnPointer;
@@ -44,6 +46,8 @@ template<typename T> inline mxArrayPtr assignmxArray(MexMatrix<T> &VectorOut, mx
 template<typename T> inline mxArrayPtr assignmxArray(MexVector<T> &VectorOut, mxClassID ClassID){
 
 	mxArrayPtr ReturnPointer = mxCreateNumericMatrix_730(0, 0, ClassID, mxREAL);
+	VectorOut.trim();
+
 	if (VectorOut.size()){
 		mxSetM(ReturnPointer, VectorOut.size());
 		mxSetN(ReturnPointer, 1);
@@ -55,6 +59,8 @@ template<typename T> inline mxArrayPtr assignmxArray(MexVector<T> &VectorOut, mx
 template<typename T> inline mxArrayPtr assignmxArray(MexVector<MexVector<T> > &VectorOut, mxClassID ClassID){
 
 	mxArrayPtr ReturnPointer;
+	VectorOut.trim();
+
 	if (VectorOut.size()){
 		ReturnPointer = mxCreateCellMatrix(VectorOut.size(), 1);
 
