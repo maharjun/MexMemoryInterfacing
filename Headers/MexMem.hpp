@@ -271,7 +271,7 @@ public:
 		else {
 			size_t Capacity = this->capacity();
 			int Exp = 0;
-			Capacity = Capacity ? Capacity + (Capacity >> 1) : 4;
+			Capacity = Capacity ? Capacity + (Capacity >> 1) + 1 : 4;
 			reserve(Capacity);
 			*Array_Last = Val;
 			++Array_Last;
