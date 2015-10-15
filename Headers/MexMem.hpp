@@ -7,8 +7,10 @@
 
 typedef mxArray* mxArrayPtr;
 
-template<typename T> class MexVector;
-template<typename T> class MexMatrix;
+class CAllocator;
+class mxAllocator;
+template<typename T, class Al = mxAllocator> class MexVector;
+template<typename T, class Al = mxAllocator> class MexMatrix;
 
 struct ExOps{
 	enum ExCodes{
@@ -26,10 +28,10 @@ class MemCounter{
 public:
 	const static size_t &MemUsageLimit;
 
-	template<typename T>
+	template<typename T, class Al >
 	friend class MexVector;
 
-	template<typename T>
+	template<typename T, class Al >
 	friend class MexMatrix;
 
 	static size_t OpenMemAccount(size_t MemUsageLim){
@@ -58,31 +60,69 @@ public:
 	}
 };
 
-template<typename T>
+class CAllocator {
+public:
+	static inline void * allocate(size_t Size) {
+		void* ReturnPtr = malloc(Size);
+		return ReturnPtr;
+	}
+	static inline void deallocate(void * Pointer) {
+		free(Pointer);
+	}
+	static inline void * reallocate(void * PointerIn, size_t SizeNew) {
+		void * ReturnPtr = (void *)realloc(PointerIn, SizeNew);
+		return ReturnPtr;
+	}
+};
+
+class mxAllocator {
+public:
+	static inline void * allocate(size_t Size) {
+		void * ReturnPtr = (void *)mxMalloc(Size);
+		return ReturnPtr;
+	}
+	static inline void deallocate(void * Pointer) {
+		mxFree(Pointer);
+	}
+	static inline void * reallocate(void * PointerIn, size_t SizeNew) {
+		void * ReturnPtr = (void *)mxRealloc(PointerIn, SizeNew);
+		return ReturnPtr;
+	}
+};
+
+template<typename T, class Al >
 class MexVector{
 	bool isCurrentMemExternal;
 	T* Array_Beg;
 	T* Array_Last;	// Note Not Array_End as it is not representative
 					// of the capacity
 	T* Array_End;	// Note Array End is true end of allocated array
+
+	template<typename T2, typename Al2>
+	friend class MexVector;
+
 public:
 	typedef T* iterator;
 
+	// Each instance of templated constructor has an overload that 
+	// corresponds to the actual copy assignment operator for current 
+	// class
 	inline MexVector() : Array_End(NULL), isCurrentMemExternal(false), Array_Beg(NULL), Array_Last(NULL){};
 	inline explicit MexVector(size_t Size){
 		if (Size > 0){
 			size_t NumExtraBytes = Size*sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(Size, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(Size*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
 			}
 			if (Array_Beg == NULL)     // Full Memory exception
 				throw ExOps::EXCEPTION_MEM_FULL;
-			for (size_t i = 0; i < Size; ++i)
-				new (Array_Beg + i) T;	// Constructing Default Objects
+			if(!std::is_trivially_default_constructible<T>::value)
+				for (size_t i = 0; i < Size; ++i)
+					new (Array_Beg + i) T;	// Constructing Default Objects
 		}
 		else{
 			Array_Beg = NULL;
@@ -91,13 +131,14 @@ public:
 		Array_End = Array_Beg + Size;
 		isCurrentMemExternal = false;
 	}
-	inline MexVector(const MexVector<T> &M){
+	template<typename Al2>
+	inline MexVector(const MexVector<T, Al2> &M) {
 		size_t Size = M.size();
 		if (Size > 0){
 			size_t NumExtraBytes = Size*sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(Size, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(Size*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
@@ -116,7 +157,32 @@ public:
 		Array_End = Array_Beg + Size;
 		isCurrentMemExternal = false;
 	}
-	inline MexVector(MexVector<T> &&M){
+	inline MexVector(const MexVector &M) {
+		size_t Size = M.size();
+		if (Size > 0) {
+			size_t NumExtraBytes = Size*sizeof(T);
+			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit) {
+				MemCounter::MemUsageCount += NumExtraBytes;
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(Size*sizeof(T)));
+			}
+			else {
+				throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
+			}
+			if (Array_Beg != NULL)
+				for (size_t i = 0; i < Size; ++i)
+					new (Array_Beg + i) T(M.Array_Beg[i]);
+			else {	// Checking for memory full shit
+				throw ExOps::EXCEPTION_MEM_FULL;
+			}
+		}
+		else {
+			Array_Beg = NULL;
+		}
+		Array_Last = Array_Beg + Size;
+		Array_End = Array_Beg + Size;
+		isCurrentMemExternal = false;
+	}
+	inline MexVector(MexVector &&M) {
 		isCurrentMemExternal = M.isCurrentMemExternal;
 		Array_Beg = M.Array_Beg;
 		Array_Last = M.Array_Last;
@@ -130,7 +196,7 @@ public:
 			size_t NumExtraBytes = Size*sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(Size, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(Size*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
@@ -160,15 +226,28 @@ public:
 			trim();    // Ensure destruction of all elements
 		}
 	}
-	inline void operator = (const MexVector<T> &M){
-		assign(M);
+
+	// Each instance of templated assignment operator has an overload
+	// that corresponds to the actual copy assignment operator for
+	// current class
+	template<typename Al2> 
+	inline MexVector & operator = (const MexVector<T, Al2> &M) {
+		return assign(M);
 	}
-	inline void operator = (const MexVector<T> &&M){
-		assign(std::move(M));
+	inline MexVector & operator = (const MexVector         &M) {
+		return assign(M);
 	}
-	inline void operator = (const MexVector<T> &M) const{
-		this->assign(M);
+	inline MexVector & operator = (      MexVector        &&M) {
+		return assign(std::move(M));
 	}
+	template<typename Al2> 
+	inline const MexVector & operator = (const MexVector<T, Al2> &M) const {
+		return this->assign(M);
+	}
+	inline const MexVector & operator = (const MexVector         &M) const {
+		return this->assign(M);
+	}
+
 	inline T& operator[] (size_t Index) const{
 		return Array_Beg[Index];
 	}
@@ -187,7 +266,8 @@ public:
 			return temp;
 		}
 	}
-	inline void assign(const MexVector<T> &M){
+	template<typename Al2> 
+	inline       MexVector & assign(const MexVector<T, Al2> &M) {
 		size_t ExtSize = M.size();
 		size_t currCapacity = this->capacity();
 		if (ExtSize > currCapacity && !isCurrentMemExternal){
@@ -198,7 +278,7 @@ public:
 			size_t NumExtraBytes = ExtSize*sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(ExtSize, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(ExtSize*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
@@ -223,8 +303,10 @@ public:
 		else{
 			throw ExOps::EXCEPTION_EXTMEM_MOD;	// Attempted resizing or reallocation of Array_Beg holding External Memory
 		}
+
+		return *this;
 	}
-	inline void assign(MexVector<T> &&M){
+	inline       MexVector & assign(MexVector<T, Al> &&M){
 		if (!isCurrentMemExternal && Array_Beg != NULL){
 			resize(0);
 			trim();    // Ensure destruction of all elements
@@ -236,8 +318,11 @@ public:
 		if (Array_Beg != NULL){
 			M.isCurrentMemExternal = true;
 		}
+
+		return *this;
 	}
-	inline void assign(const MexVector<T> &M) const{
+	template<typename Al2> 
+	inline const MexVector & assign(const MexVector<T, Al2> &M) const {
 		size_t ExtSize = M.size();
 		if (ExtSize == this->size()){
 			for (size_t i = 0; i < ExtSize; ++i)
@@ -246,8 +331,9 @@ public:
 		else{
 			throw ExOps::EXCEPTION_CONST_MOD;	// Attempted resizing or reallocation or reassignment of const Array_Beg
 		}
+		return *this;
 	}
-	inline void assign(size_t Size, T* Array_, bool SelfManage = 1){
+	inline       MexVector & assign(size_t Size, T* Array_, bool SelfManage = 1){
 		if (!isCurrentMemExternal && Array_Beg != NULL){
 			resize(0);
 			trim();
@@ -262,6 +348,7 @@ public:
 		}
 		Array_Last = Array_Beg + Size;
 		Array_End = Array_Beg + Size;
+		return *this;
 	}
 	inline void push_back(const T &Val){
 		if (Array_Last != Array_End){
@@ -323,7 +410,7 @@ public:
 				size_t NumExtraBytes = (Cap - currCapacity)*sizeof(T);
 				if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 					MemCounter::MemUsageCount += NumExtraBytes;
-					Temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, Cap*sizeof(T)));
+					Temp = reinterpret_cast<T*>(Al::reallocate(Array_Beg, Cap*sizeof(T)));
 				}
 				else{
 					throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
@@ -333,7 +420,7 @@ public:
 				size_t NumExtraBytes = Cap*sizeof(T);
 				if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 					MemCounter::MemUsageCount += NumExtraBytes;
-					Temp = reinterpret_cast<T*>(mxCalloc(Cap, sizeof(T)));
+					Temp = reinterpret_cast<T*>(Al::allocate(Cap*sizeof(T)));
 				}
 				else{
 					throw ExOps::EXCEPTION_MEM_FULL; // Memory Quota Exceeded
@@ -377,7 +464,7 @@ public:
 			for (T* j = Array_Beg + prevSize; j < End; ++j)
 				*j = Val;
 	}
-	inline void sharewith(MexVector<T> &M) const{
+	inline void sharewith(MexVector<T, Al> &M) const {
 		if (!M.isCurrentMemExternal && M.Array_Beg != NULL){
 			M.resize(0);
 			M.trim();
@@ -395,7 +482,7 @@ public:
 			M.isCurrentMemExternal = false;
 		}
 	}
-	inline void swap(MexVector<T> &M) {
+	inline void swap(MexVector<T, Al> &M) {
 		T* Temp_Beg;
 		int Temp_Size;
 		int Temp_Capacity;
@@ -425,22 +512,28 @@ public:
 					j->~T();
 				}
 			
+			// Update MemCounter
 			T* Temp;
 			size_t NumExtraBytes = (this->capacity() - currSize)*sizeof(T);
 			MemCounter::MemUsageCount -= NumExtraBytes;
-			Temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, currSize*sizeof(T)));
 
-			if (currSize > 0){
-				if (Temp != NULL)
+			if (currSize == 0 && Array_Beg != nullptr) {
+				Al::deallocate(Array_Beg);
+				Array_Beg = nullptr;
+				Array_Last = nullptr;
+				Array_Last = nullptr;
+				isCurrentMemExternal = false;
+			}
+			else if (Array_Beg != nullptr) {
+				Temp = reinterpret_cast<T*>(Al::reallocate(Array_Beg, currSize*sizeof(T)));
+				if (Temp != NULL) {
 					Array_Beg = Temp;
+					Array_Last = Array_Beg + currSize;
+					Array_End = Array_Beg + currSize;
+				}
 				else
 					throw ExOps::EXCEPTION_MEM_FULL;
 			}
-			else{
-				Array_Beg = NULL;
-			}
-			Array_Last = Array_Beg + currSize;
-			Array_End = Array_Beg +  currSize;
 		}
 		else{
 			throw ExOps::EXCEPTION_EXTMEM_MOD;
@@ -479,32 +572,39 @@ public:
 };
 
 
-template<class T>
+template<class T, class Al >
 class MexMatrix{
 	size_t NRows, NCols;
 	size_t Capacity;
-	MexVector<T> RowReturnVector;
+	MexVector<T, Al> RowReturnVector;
 	T* Array_Beg;
 	bool isCurrentMemExternal;
+
+	template <typename T2, class Al2>
+	friend class MexMatrix;
 
 public:
 	typedef T* iterator;
 
+	// Each instance of templated constructor has an overload that 
+	// corresponds to the actual copy assignment operator for current 
+	// class
 	inline MexMatrix() : NRows(0), NCols(0), Capacity(0), isCurrentMemExternal(false), Array_Beg(NULL), RowReturnVector(){};
 	inline explicit MexMatrix(size_t NRows_, size_t NCols_) : RowReturnVector() {
 		if (NRows_*NCols_ > 0){
 			size_t NumExtraBytes = NRows_ * NCols_ * sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(NRows_ * NCols_, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(NRows_ * NCols_ * sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL;
 			}
 			if (Array_Beg == NULL)     // Full Memory exception
 				throw ExOps::EXCEPTION_MEM_FULL;
-			for (size_t i = 0; i < NRows_*NCols_; ++i)
-				new (Array_Beg + i) T;
+			if (!std::is_trivially_default_constructible<T>::value)
+				for (size_t i = 0; i < NRows_*NCols_; ++i)
+					new (Array_Beg + i) T;
 		}
 		else{
 			Array_Beg = NULL;
@@ -514,13 +614,13 @@ public:
 		Capacity = NRows_*NCols_;
 		isCurrentMemExternal = false;
 	}
-	inline MexMatrix(const MexMatrix<T> &M) : RowReturnVector(){
+	template<typename Al2> inline MexMatrix(const MexMatrix<T, Al2> &M) : RowReturnVector() {
 		size_t MNumElems = M.NRows * M.NCols;
 		if (MNumElems > 0){
 			int NumExtraBytes = MNumElems * sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(MNumElems, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(MNumElems*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL;
@@ -540,7 +640,33 @@ public:
 		Capacity = MNumElems;
 		isCurrentMemExternal = false;
 	}
-	inline MexMatrix(MexMatrix<T> &&M) : RowReturnVector(){
+	                       inline MexMatrix(const MexMatrix  &M) : RowReturnVector() {
+		size_t MNumElems = M.NRows * M.NCols;
+		if (MNumElems > 0) {
+			int NumExtraBytes = MNumElems * sizeof(T);
+			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit) {
+				MemCounter::MemUsageCount += NumExtraBytes;
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(MNumElems*sizeof(T)));
+			}
+			else {
+				throw ExOps::EXCEPTION_MEM_FULL;
+			}
+			if (Array_Beg != NULL)
+				for (size_t i = 0; i < MNumElems; ++i)
+					new (Array_Beg + i) T(M.Array_Beg[i]);
+			else {	// Checking for memory full shit
+				throw ExOps::EXCEPTION_MEM_FULL;
+			}
+		}
+		else {
+			Array_Beg = NULL;
+		}
+		NRows = M.NRows;
+		NCols = M.NCols;
+		Capacity = MNumElems;
+		isCurrentMemExternal = false;
+	}
+	inline MexMatrix(MexMatrix &&M) : RowReturnVector() {
 		isCurrentMemExternal = M.isCurrentMemExternal;
 		NRows = M.NRows;
 		NCols = M.NCols;
@@ -556,7 +682,7 @@ public:
 			int NumExtraBytes = NumElems * sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(NumElems, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(NumElems*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL;
@@ -590,16 +716,27 @@ public:
 			trim();
 		}
 	}
-	inline void operator = (const MexMatrix<T> &M){
-		assign(M);
+
+	// Each instance of templated constructor has an overload that 
+	// corresponds to the actual copy assignment operator for current 
+	// class
+	template<typename Al2> inline MexMatrix & operator = (const MexMatrix<T, Al2> &M) {
+		return assign(M);
 	}
-	inline void operator = (const MexMatrix<T> &&M){
-		assign(std::move(M));
+	                       inline MexMatrix & operator = (const MexMatrix         &M) {
+		return assign(M);
 	}
-	inline void operator = (const MexMatrix<T> &M) const{
-		assign(M);
+	inline MexMatrix & operator = (const MexMatrix &&M) {
+		return assign(std::move(M));
 	}
-	inline const MexVector<T>& operator[] (size_t Index) {
+	template<typename Al2> inline const MexMatrix & operator = (const MexMatrix<T, Al2> &M) const {
+		return assign(M);
+	}
+	                       inline const MexMatrix & operator = (const MexMatrix         &M) const {
+		return assign(M);
+	}
+	
+	inline const MexVector<T, Al>& operator[] (size_t Index) {
 		RowReturnVector.assign(NCols, Array_Beg + Index*NCols, false);
 		return  RowReturnVector;
 	}
@@ -621,7 +758,8 @@ public:
 			return temp;
 		}
 	}
-	inline void assign(const MexMatrix<T> &M){
+	template<typename Al2> 
+	inline MexMatrix & assign(const MexMatrix<T, Al2> &M) {
 
 		size_t MNumElems = M.NRows * M.NCols;
 
@@ -633,7 +771,7 @@ public:
 			size_t NumExtraBytes = MNumElems * sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				Array_Beg = reinterpret_cast<T*>(mxCalloc(MNumElems, sizeof(T)));
+				Array_Beg = reinterpret_cast<T*>(Al::allocate(MNumElems*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL;
@@ -661,12 +799,13 @@ public:
 		else{
 			throw ExOps::EXCEPTION_EXTMEM_MOD;	// Attempted resizing or reallocation of Array_Beg holding External Memory
 		}
+
+		return *this;
 	}
-	inline void assign(MexMatrix<T> &&M){
+	inline MexMatrix & assign(MexMatrix &&M) {
 		if (!isCurrentMemExternal && Array_Beg != NULL){
 			resize(0, 0);		// Ensure destruction of elements
 			trim();
-
 		}
 		isCurrentMemExternal = M.isCurrentMemExternal;
 		NRows = M.NRows;
@@ -676,8 +815,11 @@ public:
 		if (Array_Beg != NULL){
 			M.isCurrentMemExternal = true;
 		}
+
+		return *this;
 	}
-	inline void assign(const MexMatrix<T> &M) const{
+	template<typename Al2>
+	inline const MexMatrix & assign(const MexMatrix<T, Al2> &M) const {
 		size_t MNumElems = M.NRows * M.NCols;
 		if (M.NRows == NRows && M.NCols == NCols){
 			for (size_t i = 0; i < MNumElems; ++i)
@@ -686,8 +828,9 @@ public:
 		else{
 			throw ExOps::EXCEPTION_CONST_MOD;
 		}
+		return *this;
 	}
-	inline void assign(size_t NRows_, size_t NCols_, T* Array_, bool SelfManage = 1){
+	inline MexMatrix & assign(size_t NRows_, size_t NCols_, T* Array_, bool SelfManage = 1){
 		NRows = NRows_;
 		NCols = NCols_;
 		Capacity = NRows_*NCols_;
@@ -703,6 +846,7 @@ public:
 			isCurrentMemExternal = false;
 			Array_Beg = NULL;
 		}
+		return *this;
 	}
 	inline void copyArray(size_t RowPos, size_t ColPos, T* ArrBegin, size_t NumElems) const{
 		size_t Position = RowPos*NCols + ColPos;
@@ -725,7 +869,7 @@ public:
 			size_t NumExtraBytes = Cap * sizeof(T);
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit){
 				MemCounter::MemUsageCount += NumExtraBytes;
-				temp = reinterpret_cast<T*>(mxCalloc(Cap, sizeof(T)));
+				temp = reinterpret_cast<T*>(Al::allocate(Cap*sizeof(T)));
 			}
 			else{
 				throw ExOps::EXCEPTION_MEM_FULL;
@@ -781,9 +925,9 @@ public:
 			if (MemCounter::MemUsageCount + NumExtraBytes <= MemCounter::MemUsageLimit) {
 				MemCounter::MemUsageCount += NumExtraBytes;
 				if (Array_Beg == NULL)
-					temp = reinterpret_cast<T*>(mxCalloc(NewCapacity, sizeof(T)));
+					temp = reinterpret_cast<T*>(Al::allocate(NewCapacity*sizeof(T)));
 				else
-					temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, NewCapacity*sizeof(T)));
+					temp = reinterpret_cast<T*>(Al::reallocate(Array_Beg, NewCapacity*sizeof(T)));
 			}
 			else {
 				throw ExOps::EXCEPTION_MEM_FULL;
@@ -812,7 +956,7 @@ public:
 		}
 		NRows = NewNRows;
 	}
-	inline void resizeRows(size_t NewNRows, const MexVector<T> &RowVal) {
+	template<typename Al2> inline void resizeRows(size_t NewNRows, const MexVector<T, Al2> &RowVal) {
 		size_t PrevSize = NRows * NCols;
 		size_t NewSize  = NewNRows * NCols;
 		resizeRows(NewNRows);
@@ -820,7 +964,7 @@ public:
 			this->operator[](j) = RowVal;
 		}
 	}
-	inline void push_row(const MexVector<T> &NewRow) {
+	template<typename Al2> inline void push_row(const MexVector<T, Al2> &NewRow) {
 		size_t NewCapacity = (1 + NRows)*NCols;
 		if (NewCapacity > Capacity) {
 			size_t CurrNRows = NRows;
@@ -846,7 +990,7 @@ public:
 		}
 		NRows += NumExtraRows;
 	}
-	inline const MexVector<T> &lastRow() {
+	inline const MexVector<T, Al> &lastRow() {
 		RowReturnVector.assign(NCols, Array_Beg + (NRows-1)*NCols, false);
 		return  RowReturnVector;
 	}
@@ -854,7 +998,7 @@ public:
 	inline void trim(){
 		if (!isCurrentMemExternal){
 			if (NRows*NCols > 0){
-				T* Temp = reinterpret_cast<T*>(mxRealloc(Array_Beg, NRows*NCols*sizeof(T)));
+				T* Temp = reinterpret_cast<T*>(Al::reallocate(Array_Beg, NRows*NCols*sizeof(T)));
 				MemCounter::MemUsageCount -= (this->Capacity - this->NRows*this->NCols)*sizeof(T);
 				if (Temp != NULL)
 					Array_Beg = Temp;
@@ -864,7 +1008,7 @@ public:
 			else{
 				if (Array_Beg != NULL){
 					MemCounter::MemUsageCount -= (this->Capacity)*sizeof(T);
-					mxFree(Array_Beg);
+					Al::deallocate(Array_Beg);
 				}
 				Array_Beg = NULL;
 			}
@@ -874,7 +1018,7 @@ public:
 			throw ExOps::EXCEPTION_EXTMEM_MOD; // trying to reallocate external memory
 		}
 	}
-	inline void sharewith(MexMatrix<T> &M) const{
+	inline void sharewith(MexMatrix &M) const {
 		if (!M.isCurrentMemExternal && M.Array_Beg != NULL){
 			resize(0, 0);		// Ensure destruction of elements
 			trim();
@@ -894,7 +1038,7 @@ public:
 			M.isCurrentMemExternal = false;
 		}
 	}
-	inline void swap(MexMatrix<T> &M){
+	inline void swap(MexMatrix &M) {
 		size_t Temp_nRows, Temp_nCols;
 		size_t Temp_Capacity;
 		T* Temp_Beg;
