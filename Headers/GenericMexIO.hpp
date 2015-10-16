@@ -12,6 +12,7 @@
 
 #include "MexMem.hpp"
 #include "LambdaToFunction.hpp"
+#include "MexTypeTraits.hpp"
 
 typedef std::unordered_map<std::string, std::pair<void*, size_t> > StructArgTable;
 
@@ -188,11 +189,12 @@ inline MexMemInputOps getInputOps(int nOptions, va_list Options){
 	return InputOps;
 }
 
+template <typename FieldCppType = void>
 static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * FieldName, const MexMemInputOps & InputOps){
 	
 	// Processing Struct Name Heirarchy
 	MexVector<std::string> NameHeirarchyVect;
-	mxArrayPtr tempmxArrayPtr = InputStruct;
+	mxArrayPtr InputStructField = InputStruct;
 	StringSplit(FieldName, ".", NameHeirarchyVect);
 	
 	// Validating wether InputStruct is not nullptr
@@ -201,8 +203,8 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 
 	int NameHeirarchyDepth = NameHeirarchyVect.size();
 	for (int i = 0; i < NameHeirarchyDepth - 1; ++i){
-		tempmxArrayPtr = mxGetField(tempmxArrayPtr, 0, NameHeirarchyVect[i].data());
-		if (tempmxArrayPtr == nullptr || mxIsEmpty(tempmxArrayPtr) || mxGetClassID(tempmxArrayPtr) != mxSTRUCT_CLASS){
+		InputStructField = mxGetField(InputStructField, 0, NameHeirarchyVect[i].data());
+		if (InputStructField == nullptr || mxIsEmpty(InputStructField) || mxGetClassID(InputStructField) != mxSTRUCT_CLASS){
 			// If it is an invalid struct class
 			if (InputOps.IS_REQUIRED){
 				if (!InputOps.QUIET)
@@ -214,13 +216,19 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 		}
 	}
 	
-	// Extracting and Validating Existence of Final Vector while calculating size
-	size_t NumElems = 0;
-	tempmxArrayPtr = mxGetField(tempmxArrayPtr, 0, NameHeirarchyVect.last().data());
-	// If array is non-empty
-	if (tempmxArrayPtr != nullptr && !mxIsEmpty(tempmxArrayPtr)){
-		NumElems = mxGetNumberOfElements(tempmxArrayPtr);
+	// Extracting Final Vector
+	InputStructField = mxGetField(InputStructField, 0, NameHeirarchyVect.last().data());
+
+	// Validate Type of Field
+	if (!FieldInfo<FieldCppType>::CheckType(InputStructField)) {
+		if (!InputOps.QUIET)
+			WriteOutput("The Field '%s' does not match the type required.\n", FieldName);
+		if (!InputOps.NO_EXCEPT)
+			throw ExOps::EXCEPTION_INVALID_INPUT;
 	}
+
+	// Calculate Number of elements
+	size_t NumElems = FieldInfo<FieldCppType>::getSize(InputStructField);
 
 	// If vector exists with non-empty data
 	if (NumElems > 0) {
@@ -232,7 +240,7 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 			return nullptr;
 		}
 		else {
-			return tempmxArrayPtr;
+			return InputStructField;
 		}
 	}
 	// If no data was found
@@ -301,7 +309,6 @@ template <typename T, class Al> inline void getInputfrommxArray(mxArray *InputAr
 		VectorIn.copyArray(0, tempDataPtr, NumElems);
 	}
 }
-
 
 template <typename T, class AlSub, class Al>
 inline void getInputfrommxArray(mxArray *InputArray, MexVector<MexVector<T, AlSub>, Al> &VectorIn){
@@ -374,7 +381,7 @@ template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const 
 	va_end(OptionList);
 
 	InputOps.REQUIRED_SIZE = -1;
-	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
+	mxArrayPtr StructFieldPtr = getValidStructField<T>(InputStruct, FieldName, InputOps);
 
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray(StructFieldPtr, ScalarIn);
@@ -398,7 +405,7 @@ inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeD
 	va_end(OptionList);
 
 	InputOps.REQUIRED_SIZE = -1;
-	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
+	mxArrayPtr StructFieldPtr = getValidStructField<TypeSrc>(InputStruct, FieldName, InputOps);
 
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray<TypeSrc>(StructFieldPtr, ScalarIn);
@@ -421,7 +428,7 @@ template <typename T, class Al> inline int getInputfromStruct(mxArray *InputStru
 	va_end(OptionArray);
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
+	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<T> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray(StructFieldPtr, VectorIn);
 		return 0;
@@ -446,7 +453,7 @@ template <typename T, class AlSub, class Al> inline int getInputfromStruct(mxArr
 	va_end(OptionArray);
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
+	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<MexVector<T> > >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr && mxGetClassID(StructFieldPtr) == mxCELL_CLASS){
 		getInputfrommxArray(StructFieldPtr, VectorIn);
 		return 0;
@@ -457,6 +464,7 @@ template <typename T, class AlSub, class Al> inline int getInputfromStruct(mxArr
 }
 
 // Taking structure as input
+// This function is slightly less secure as strict type compliance is not ensured
 template <typename T, class Al>
 inline int getInputfromStruct(
 	mxArray *InputStruct, const char* FieldName, 
@@ -525,6 +533,7 @@ inline int getInputfromStruct(
 				));
 		}
 	}
+	
 	// At this point PrevNumElems represents the number of elements in the arrays listed
 	VectorIn.resize(PrevNumElems);
 	for (int i = 0; i < PrevNumElems; ++i){
@@ -540,6 +549,7 @@ inline int getInputfromStruct(
 }
 
 // Taking structure as input (functors)
+// This function is slightly less secure as strict type compliance is not ensured
 template <typename T, class Al>
 inline int getInputfromStruct(
 	mxArray *InputStruct, const char* FieldName,
@@ -639,7 +649,7 @@ inline int getInputfromStruct(
 	va_end(OptionArray);
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
+	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<TypeSrc> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn);
 		return 0;
@@ -648,7 +658,6 @@ inline int getInputfromStruct(
 		return 1;
 	}
 }
-
 
 // Type Casting included (explicit)
 template <typename TypeSrc, typename TypeDest, class AlDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
@@ -667,7 +676,7 @@ inline int getInputfromStruct(
 	va_end(OptionArray);
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
+	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<TypeSrc> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn, casting_fun);
 		return 0;
@@ -695,7 +704,7 @@ inline int getInputfromStruct(
 	va_end(OptionArray);
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField(InputStruct, FieldName, InputOps);
+	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<TypeSrc> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn, casting_fun);
 		return 0;
