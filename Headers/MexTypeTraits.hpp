@@ -9,50 +9,50 @@
 
 template <typename T>
 struct GetMexType {
-	static constexpr const uint32_t typeVal = mxUNKNOWN_CLASS;
+	static constexpr uint32_t typeVal = mxUNKNOWN_CLASS;
 };
 
-template <> struct GetMexType<                    char16_t > { static constexpr const mxClassID typeVal = ::mxCHAR_CLASS   ; };
-template <> struct GetMexType<   signed           char     > { static constexpr const mxClassID typeVal = ::mxINT8_CLASS   ; };
-template <> struct GetMexType< unsigned           char     > { static constexpr const mxClassID typeVal = ::mxUINT8_CLASS  ; };
-template <> struct GetMexType<   signed short     int      > { static constexpr const mxClassID typeVal = ::mxINT16_CLASS  ; };
-template <> struct GetMexType< unsigned short     int      > { static constexpr const mxClassID typeVal = ::mxUINT16_CLASS ; };
-template <> struct GetMexType<   signed           int      > { static constexpr const mxClassID typeVal = ::mxINT32_CLASS; };
-template <> struct GetMexType< unsigned           int      > { static constexpr const mxClassID typeVal = ::mxUINT32_CLASS; };
-template <> struct GetMexType<   signed long      int      > { static constexpr const mxClassID typeVal = ::mxINT32_CLASS  ; };
-template <> struct GetMexType< unsigned long      int      > { static constexpr const mxClassID typeVal = ::mxUINT32_CLASS ; };
-template <> struct GetMexType<   signed long long int      > { static constexpr const mxClassID typeVal = ::mxINT64_CLASS  ; };
-template <> struct GetMexType< unsigned long long int      > { static constexpr const mxClassID typeVal = ::mxUINT64_CLASS ; };
-template <> struct GetMexType<                    float    > { static constexpr const mxClassID typeVal = ::mxSINGLE_CLASS ; };
-template <> struct GetMexType<                    double   > { static constexpr const mxClassID typeVal = ::mxDOUBLE_CLASS ; };
+template <> struct GetMexType<                    char16_t > { static constexpr mxClassID typeVal = ::mxCHAR_CLASS   ; };
+template <> struct GetMexType<   signed           char     > { static constexpr mxClassID typeVal = ::mxINT8_CLASS   ; };
+template <> struct GetMexType< unsigned           char     > { static constexpr mxClassID typeVal = ::mxUINT8_CLASS  ; };
+template <> struct GetMexType<   signed short     int      > { static constexpr mxClassID typeVal = ::mxINT16_CLASS  ; };
+template <> struct GetMexType< unsigned short     int      > { static constexpr mxClassID typeVal = ::mxUINT16_CLASS ; };
+template <> struct GetMexType<   signed           int      > { static constexpr mxClassID typeVal = ::mxINT32_CLASS; };
+template <> struct GetMexType< unsigned           int      > { static constexpr mxClassID typeVal = ::mxUINT32_CLASS; };
+template <> struct GetMexType<   signed long      int      > { static constexpr mxClassID typeVal = ::mxINT32_CLASS  ; };
+template <> struct GetMexType< unsigned long      int      > { static constexpr mxClassID typeVal = ::mxUINT32_CLASS ; };
+template <> struct GetMexType<   signed long long int      > { static constexpr mxClassID typeVal = ::mxINT64_CLASS  ; };
+template <> struct GetMexType< unsigned long long int      > { static constexpr mxClassID typeVal = ::mxUINT64_CLASS ; };
+template <> struct GetMexType<                    float    > { static constexpr mxClassID typeVal = ::mxSINGLE_CLASS ; };
+template <> struct GetMexType<                    double   > { static constexpr mxClassID typeVal = ::mxDOUBLE_CLASS ; };
 
-template <typename T, class Al>              struct GetMexType<MexVector<T, Al> >                   { static constexpr const uint32_t typeVal = GetMexType<T>::typeVal; };
-template <typename T, class AlSub, class Al> struct GetMexType<MexVector<MexVector<T, AlSub>, Al> > { static constexpr const uint32_t typeVal = mxCELL_CLASS; };
+template <typename T, class Al>              struct GetMexType<MexVector<T, Al> >                   { static constexpr uint32_t typeVal = GetMexType<T>::typeVal; };
+template <typename T, class AlSub, class Al> struct GetMexType<MexVector<MexVector<T, AlSub>, Al> > { static constexpr uint32_t typeVal = mxCELL_CLASS; };
 
 // Type Traits extraction for Vectors
 template <typename T, typename B = void> 
 	struct isMexVector 
-		{ static constexpr const bool value = false; };
+		{ static constexpr bool value = false; };
 template <typename T, class Al> 
 	struct isMexVector<MexVector<T, Al>, typename std::enable_if<std::is_arithmetic<T>::value >::type > 
-		{ static constexpr const bool value = true; typedef T type; };
+		{ static constexpr bool value = true; typedef T type; };
 
 // Type Traits extraction for Vector of Vectors
 template <typename T, class B = void>
 	struct isMexVectVector 
-		{ static constexpr const bool value = false; };
+		{ static constexpr bool value = false; };
 template <typename T, class Al>
-	struct isMexVectVector<MexVector<T, Al>, typename std::enable_if<isMexVector<T, Al>::value>::type > 
+	struct isMexVectVector<MexVector<T, Al>, typename std::enable_if<isMexVector<T>::value>::type > 
 	{
-		static constexpr const bool value = true;
-		typedef typename isMexVector<T, Al>::type type;
+		static constexpr bool value = true;
+		typedef typename isMexVector<T>::type type;
 		typedef T elemType;
 	};
 template <typename T, class Al>
-	struct isMexVectVector<MexVector<T, Al>, typename std::enable_if<isMexVectVector<T, Al>::value>::type >
+	struct isMexVectVector<MexVector<T, Al>, typename std::enable_if<isMexVectVector<T>::value>::type >
 	{
-		static constexpr const bool value = true;
-		typedef typename isMexVectVector<T, Al>::type type;
+		static constexpr bool value = true;
+		typedef typename isMexVectVector<T>::type type;
 		typedef T elemType;
 	};
 
@@ -148,7 +148,7 @@ struct FieldInfo<T, typename std::enable_if<isMexVectVector<T>::value>::type> {
 			size_t NSubElems = mxGetNumberOfElements(InputmxArray);
 			// Validate each subvector
 			for (int i = 0; i < NSubElems; ++i) {
-				if (!VAT<typename isMexVectVector<T>::elemType>(SubVectorArray[i])) {
+				if (!FieldInfo<typename isMexVectVector<T>::elemType>::CheckType(SubVectorArray[i])) {
 					isValid = false;
 					break;
 				}
