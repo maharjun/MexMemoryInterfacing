@@ -190,7 +190,7 @@ inline MexMemInputOps getInputOps(int nOptions, va_list Options){
 }
 
 template <typename FieldCppType = void>
-static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * FieldName, const MexMemInputOps & InputOps){
+static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * FieldName, const MexMemInputOps & InputOps = MexMemInputOps()){
 	
 	// Processing Struct Name Heirarchy
 	MexVector<std::string> NameHeirarchyVect;
@@ -230,9 +230,9 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 	// Calculate Number of elements
 	size_t NumElems = FieldInfo<FieldCppType>::getSize(InputStructField);
 
-	// If vector exists with non-empty data
-	if (NumElems > 0) {
-		if (InputOps.REQUIRED_SIZE != -1 && InputOps.REQUIRED_SIZE != NumElems) {
+	// If Field exists with non-empty data
+	if (InputStructField != nullptr) {
+		if (InputOps.REQUIRED_SIZE != -1 && NumElems > 0 && InputOps.REQUIRED_SIZE != NumElems) {
 			if (!InputOps.QUIET)
 				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
 			if (!InputOps.NO_EXCEPT)
