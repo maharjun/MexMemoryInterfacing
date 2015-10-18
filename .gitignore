@@ -48,14 +48,13 @@ Temporary Items
 /*.suo
 /*.*sdf
 
-!/PolychronousGrpFind
 !/Headers
 !/Source
 !/Items
 !/PropertySheets
 !/MatlabSource
-/MatlabSource/*.mex*
-/MatlabSource/*.asv
+/MatlabSource/*/*.mex*
+/MatlabSource/*/*.asv
 
 /*.open*
 # ignore all ~version of word documents
