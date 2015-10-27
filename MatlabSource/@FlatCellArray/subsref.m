@@ -1,4 +1,4 @@
-function FlatCellArrOut = subsref(obj, Inds)
+function varargout = subsref(obj, Inds)
 %SUBSREF Returns a FlatCellArray that represents the cell array indexed
 %   Detailed explanation goes here
 	
@@ -15,7 +15,11 @@ function FlatCellArrOut = subsref(obj, Inds)
 	
 	% In the event of purely struct indexing
 	if isempty(Inds)
-		FlatCellArrOut = builtin('subsref', obj, DefaultInds);
+		if ~nargout
+			builtin('subsref', obj, DefaultInds);
+		else
+			[varargout{1:nargout}] = builtin('subsref', obj, DefaultInds);
+		end
 		return;
 	end
 	
@@ -93,11 +97,15 @@ function FlatCellArrOut = subsref(obj, Inds)
 		end
 	end
 	
-	FlatCellArrOut = obj.getSubFlatCellArr(Level, LevelIndices);
+	varargout{1} = obj.getSubFlatCellArr(Level, LevelIndices);
 	
 	% Perform Default Indexing
 	if ~isempty(DefaultInds)
-		FlatCellArrOut = builtin('subsref', FlatCellArrOut, DefaultInds);
+		if ~nargout
+			builtin('subsref', varargout{1}, DefaultInds);
+		else
+			[varargout{1:nargout}] = builtin('subsref', varargout{1}, DefaultInds);
+		end
 	end
 end
 

@@ -161,7 +161,7 @@ classdef FlatCellArray < hgsetget
 	
 	% Indexing Methods
 	methods
-		FlatCellArrOut = subsref(obj, Inds);
+		[varargout] = subsref(obj, Inds);
 	end
 	
 	% Misc Methods

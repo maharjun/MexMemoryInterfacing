@@ -119,7 +119,7 @@ function append(FlatCellArr, Cell2Push, DepthStartInd, InputType, ActualCell2Pus
 		PushCellArrDepth = ActualCell2PushDepth;
 	elseif isa(Cell2Push, 'FlatCellArray')
 		PushCellArrDepth = Cell2Push.Depth;
-	elseif isvector(Cell2Push, 'FlatCellArray')
+	elseif isvector(Cell2Push)
 		PushCellArrDepth = 0;
 	else
 		ME = MException('FlatCellArray:InvalidInput', 'The input Cell2Push is neither a Cell Array nor a FlatCellArray nor a vector');
