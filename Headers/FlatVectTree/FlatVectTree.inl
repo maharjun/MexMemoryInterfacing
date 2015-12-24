@@ -1,4 +1,4 @@
-#include <xutility>
+#include <utility>
 #include "FlatVectTree.hpp"
 
 typedef int T;
@@ -302,7 +302,7 @@ inline void FlatVectTree<T, FVT_Al, B>::append(const MexVector<SubElemT, Al> &Ve
 
 template<typename T, class FVT_Al, class B>
 template<typename SubElemT, class Al>
-inline void FlatVectTree<T, FVT_Al, B>::append(MexVector<SubElemT, Al> &&VectTreeIn, int InsertDepth = -1) {
+inline void FlatVectTree<T, FVT_Al, B>::append(MexVector<SubElemT, Al> &&VectTreeIn, int InsertDepth) {
 	/* 
 	   This function appends the given MexVectIn at the specified InsertDepth
 	   
@@ -648,7 +648,7 @@ inline void FlatVectTree<T, FVT_Al, B>::getVectTreeFromInds(MexVector<MexVector<
 // Get Vector Tree
 template<typename T, class FVT_Al, class B>
 template<typename SubElemT, class Al, class AlInds>
-inline void FlatVectTree<T, FVT_Al, B>::getVectTree(MexVector<SubElemT, Al> &VectTreeOut, const MexVector<uint32_t, AlInds> &Indices = MexVector<uint32_t>(0)) {
+inline void FlatVectTree<T, FVT_Al, B>::getVectTree(MexVector<SubElemT, Al> &VectTreeOut, const MexVector<uint32_t, AlInds> &Indices) {
 
 	// Validate Indices.
 	if (Indices.size() > this->depth()) {
@@ -759,7 +759,7 @@ inline bool FlatVectTree<T, FVT_Al, B>::setDepth(uint32_t NewDepth)
 
 	uint32_t OldDepth = this->depth();
 	if (OldDepth == 0) {
-		PartitionIndex.resize(NewSize, MexVector<uint32_t>(1, (uint32_t)0));
+		PartitionIndex.resize(NewDepth, MexVector<uint32_t>(1, (uint32_t)0));
 		// it is assumed that given that OldDepth == 0, Data is Empty
 		return true;
 	}

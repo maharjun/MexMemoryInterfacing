@@ -78,10 +78,10 @@ inline bool isMexVectorType(mxClassID ClassIDin) {
 // Default Type Checking
 template<typename T = void, class B = void>
 struct FieldInfo {
-	static inline bool CheckType(mxArrayPtr InputmxArray) {
+	static inline bool CheckType(const mxArray* InputmxArray) {
 		return false;
 	}
-	static inline uint32_t getSize(mxArrayPtr InputmxArray) {
+	static inline uint32_t getSize(const mxArray* InputmxArray) {
 		return 0;
 	}
 };
@@ -89,10 +89,10 @@ struct FieldInfo {
 // Non Type Checking
 template<>
 struct FieldInfo<void> {
-	static inline bool CheckType(mxArrayPtr InputmxArray) {
+	static inline bool CheckType(const mxArray* InputmxArray) {
 		return true;
 	}
-	static inline uint32_t getSize(mxArrayPtr InputmxArray) {
+	static inline uint32_t getSize(const mxArray* InputmxArray) {
 		size_t NumElems = 0;
 
 		// If array is non-empty, calculate size
@@ -106,10 +106,10 @@ struct FieldInfo<void> {
 // Type Checking for scalar types
 template<typename T>
 struct FieldInfo<T, typename std::enable_if<std::is_arithmetic<T>::value >::type> {
-	static inline bool CheckType(mxArrayPtr InputmxArray) {
+	static inline bool CheckType(const mxArray* InputmxArray) {
 		return (InputmxArray == nullptr || mxIsEmpty(InputmxArray) || mxGetClassID(InputmxArray) == GetMexType<T>::typeVal);
 	}
-	static inline uint32_t getSize(mxArrayPtr InputmxArray) {
+	static inline uint32_t getSize(const mxArray* InputmxArray) {
 		size_t NumElems = 0;
 
 		// If array is non-empty, calculate size
@@ -124,10 +124,10 @@ struct FieldInfo<T, typename std::enable_if<std::is_arithmetic<T>::value >::type
 // Type Checking for Vector of Scalars
 template<typename T>
 struct FieldInfo<T, typename std::enable_if<isMexVector<T>::value>::type> {
-	static inline bool CheckType(mxArrayPtr InputmxArray) {
-		return (InputmxArray == nullptr || mxIsEmpty(InputmxArray) || mxGetClassID(InputmxArray) == GetMexType<isMexVector<T>::type>::typeVal);
+	static inline bool CheckType(const mxArray* InputmxArray) {
+		return (InputmxArray == nullptr || mxIsEmpty(InputmxArray) || mxGetClassID(InputmxArray) == GetMexType<typename isMexVector<T>::type>::typeVal);
 	}
-	static inline uint32_t getSize(mxArrayPtr InputmxArray) {
+	static inline uint32_t getSize(const mxArray* InputmxArray) {
 		size_t NumElems = 0;
 
 		// If array is non-empty, calculate size
@@ -141,10 +141,10 @@ struct FieldInfo<T, typename std::enable_if<isMexVector<T>::value>::type> {
 // Type Checking for Cell Array (Vector Tree / Vector of Vectors)
 template<typename T>
 struct FieldInfo<T, typename std::enable_if<isMexVectVector<T>::value>::type> {
-	static inline bool CheckType(mxArrayPtr InputmxArray) {
+	static inline bool CheckType(const mxArray* InputmxArray) {
 		bool isValid = true;
 		if (InputmxArray != nullptr && !mxIsEmpty(InputmxArray) && mxIsCell(InputmxArray)) {
-			mxArrayPtr * SubVectorArray = reinterpret_cast<mxArrayPtr *>(mxGetData(InputmxArray));
+			const mxArray* * SubVectorArray = reinterpret_cast<const mxArray* *>(mxGetData(InputmxArray));
 			size_t NSubElems = mxGetNumberOfElements(InputmxArray);
 			// Validate each subvector
 			for (int i = 0; i < NSubElems; ++i) {
@@ -162,7 +162,7 @@ struct FieldInfo<T, typename std::enable_if<isMexVectVector<T>::value>::type> {
 		}
 		return isValid;
 	}
-	static inline uint32_t getSize(mxArrayPtr InputmxArray) {
+	static inline uint32_t getSize(const mxArray* InputmxArray) {
 		size_t NumElems = 0;
 
 		// If array is non-empty, calculate size

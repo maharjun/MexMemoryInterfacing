@@ -6,13 +6,23 @@
 #undef printf
 
 #include <cstdarg>
+#include <vector>
 #include <unordered_map>
 #include <functional>
 #include <cstdio>
+#include <string.h>
 
 #include "MexMem.hpp"
 #include "LambdaToFunction.hpp"
 #include "MexTypeTraits.hpp"
+
+#ifdef _MSC_VER
+#  define STRCMPI_FUNC _strcmpi
+#elif defined __GNUC__
+#  if (__GNUC__ > 5) || (__GNUC__ == 5)
+#    define STRCMPI_FUNC strcasecmp
+#  endif
+#endif
 
 typedef std::unordered_map<std::string, std::pair<void*, size_t> > StructArgTable;
 
@@ -76,7 +86,7 @@ template<typename T> inline mxArrayPtr assignmxArray(MexVector<MexVector<T> > &V
 	return ReturnPointer;
 }
 
-inline void vWriteOutput(char *Format, std::va_list Args) {
+inline void vWriteOutput(const char *Format, std::va_list Args) {
 	char buffertemp[256], bufferFinal[256];
 	vsnprintf(buffertemp, 256, Format, Args);
 
@@ -102,7 +112,7 @@ inline void vWriteOutput(char *Format, std::va_list Args) {
 #endif
 }
 
-inline void WriteOutput(char *Format, ...) {
+inline void WriteOutput(const char *Format, ...) {
 	std::va_list Args;
 	va_start(Args, Format);
 	vWriteOutput(Format, Args);
@@ -110,7 +120,7 @@ inline void WriteOutput(char *Format, ...) {
 }
 
 template <typename ExType>
-inline void WriteException(ExType Exception, char *Format, ...) {
+inline void WriteException(ExType Exception, const char *Format, ...) {
 	std::va_list Args;
 	va_start(Args, Format);
 	vWriteOutput(Format, Args);
@@ -119,7 +129,7 @@ inline void WriteException(ExType Exception, char *Format, ...) {
 	throw Exception;
 }
 
-inline void StringSplit(const char* InputString, const char* DelimString, MexVector<std::string> &SplitStringVect,
+inline void StringSplit(const char* InputString, const char* DelimString, std::vector<std::string> &SplitStringVect,
 	bool includeBlanks = false){
 	
 	std::string tempInputString(InputString);
@@ -173,16 +183,16 @@ inline MexMemInputOps getInputOps(int nOptions, va_list Options){
 	MexMemInputOps InputOps;
 	for (int i = 0; i < nOptions; ++i){
 		char *CurrOption = va_arg(Options, char*);
-		if (!_strcmpi("IS_REQUIRED", CurrOption)){
+		if (!STRCMPI_FUNC("IS_REQUIRED", CurrOption)){
 			InputOps.IS_REQUIRED = true;
 		}
-		else if (!_strcmpi("QUIET", CurrOption)){
+		else if (!STRCMPI_FUNC("QUIET", CurrOption)){
 			InputOps.QUIET = true;
 		}
-		else if (!_strcmpi("NO_EXCEPT", CurrOption)){
+		else if (!STRCMPI_FUNC("NO_EXCEPT", CurrOption)){
 			InputOps.NO_EXCEPT = true;
 		}
-		else if (!_strcmpi("REQUIRED_SIZE", CurrOption)) {
+		else if (!STRCMPI_FUNC("REQUIRED_SIZE", CurrOption)) {
 			InputOps.REQUIRED_SIZE = va_arg(Options, int);
 		}
 	}
@@ -190,11 +200,11 @@ inline MexMemInputOps getInputOps(int nOptions, va_list Options){
 }
 
 template <typename FieldCppType = void>
-static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * FieldName, const MexMemInputOps & InputOps = MexMemInputOps()){
+static const mxArray* getValidStructField(const mxArray* InputStruct, const char * FieldName, const MexMemInputOps & InputOps = MexMemInputOps()){
 	
 	// Processing Struct Name Heirarchy
-	MexVector<std::string> NameHeirarchyVect;
-	mxArrayPtr InputStructField = InputStruct;
+	std::vector<std::string> NameHeirarchyVect;
+	const mxArray* InputStructField = InputStruct;
 	StringSplit(FieldName, ".", NameHeirarchyVect);
 	
 	// Validating wether InputStruct is not nullptr
@@ -217,7 +227,7 @@ static mxArrayPtr getValidStructField(mxArrayPtr InputStruct, const char * Field
 	}
 	
 	// Extracting Final Vector
-	InputStructField = mxGetField(InputStructField, 0, NameHeirarchyVect.last().data());
+	InputStructField = mxGetField(InputStructField, 0, NameHeirarchyVect.back().data());
 
 	// Validate Type of Field
 	if (!FieldInfo<FieldCppType>::CheckType(InputStructField)) {
@@ -284,24 +294,24 @@ inline typename MexVector<TypeLHS>::iterator MexTransform(
 	return LHSIter;
 }
 
-template <typename T> inline void getInputfrommxArray(mxArray *InputArray, T &ScalarIn){
+template <typename T> inline void getInputfrommxArray(const mxArray* InputArray, T &ScalarIn){
 	if (InputArray != nullptr && !mxIsEmpty(InputArray))
 		ScalarIn = *reinterpret_cast<T *>(mxGetData(InputArray));
 }
-template <typename TypeSrc, typename TypeDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type> 
-inline void getInputfrommxArray(mxArray *InputArray, TypeDest &ScalarIn){
+template <typename TypeSrc, typename TypeDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type> 
+inline void getInputfrommxArray(const mxArray* InputArray, TypeDest &ScalarIn){
 	if (InputArray != nullptr && !mxIsEmpty(InputArray))
 		ScalarIn = (TypeDest)(*reinterpret_cast<TypeSrc *>(mxGetData(InputArray)));
 }
-template <typename TypeSrc, typename TypeDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
-inline void getInputfrommxArray(mxArray *InputArray, TypeDest &ScalarIn,
+template <typename TypeSrc, typename TypeDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
+inline void getInputfrommxArray(const mxArray* InputArray, TypeDest &ScalarIn,
 	std::function<TypeDest(TypeSrc &)> casting_func){
 	if (InputArray != nullptr && !mxIsEmpty(InputArray))
 		ScalarIn = casting_func(*reinterpret_cast<TypeSrc *>(mxGetData(InputArray)));
 }
 
 
-template <typename T, class Al> inline void getInputfrommxArray(mxArray *InputArray, MexVector<T, Al> &VectorIn){
+template <typename T, class Al> inline void getInputfrommxArray(const mxArray* InputArray, MexVector<T, Al> &VectorIn){
 	if (InputArray != nullptr && !mxIsEmpty(InputArray)){
 		size_t NumElems = mxGetNumberOfElements(InputArray);
 		T* tempDataPtr = reinterpret_cast<T *>(mxGetData(InputArray));
@@ -311,7 +321,7 @@ template <typename T, class Al> inline void getInputfrommxArray(mxArray *InputAr
 }
 
 template <typename T, class AlSub, class Al>
-inline void getInputfrommxArray(mxArray *InputArray, MexVector<MexVector<T, AlSub>, Al> &VectorIn){
+inline void getInputfrommxArray(const mxArray* InputArray, MexVector<MexVector<T, AlSub>, Al> &VectorIn){
 	if (InputArray != nullptr && !mxIsEmpty(InputArray) && mxGetClassID(InputArray) == mxCELL_CLASS){
 		size_t NumElems = mxGetNumberOfElements(InputArray);
 		mxArrayPtr* tempArrayPtr = reinterpret_cast<mxArrayPtr*>(mxGetData(InputArray));
@@ -322,9 +332,9 @@ inline void getInputfrommxArray(mxArray *InputArray, MexVector<MexVector<T, AlSu
 	}
 }
 
-template <typename TypeSrc, typename TypeDest, class AlDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type> 
+template <typename TypeSrc, typename TypeDest, class AlDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type> 
 inline void getInputfrommxArray(
-	mxArray *InputArray, 
+	const mxArray* InputArray, 
 	MexVector<TypeDest, AlDest> &VectorIn, 
 	void (*casting_fun)(TypeSrc &SrcElem, TypeDest &DestElem)){
 	
@@ -338,9 +348,9 @@ inline void getInputfrommxArray(
 	}
 }
 
-template <typename TypeSrc, typename TypeDest, class AlDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
+template <typename TypeSrc, typename TypeDest, class AlDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
 inline void getInputfrommxArray(
-	mxArray *InputArray,
+	const mxArray* InputArray,
 	MexVector<TypeDest, AlDest> &VectorIn,
 	std::function<void(TypeSrc &, TypeDest &)> casting_fun){
 
@@ -354,9 +364,9 @@ inline void getInputfrommxArray(
 	}
 }
 
-template <typename TypeSrc, typename TypeDest, class AlDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
+template <typename TypeSrc, typename TypeDest, class AlDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
 inline void getInputfrommxArray(
-	mxArray *InputArray,
+	const mxArray* InputArray,
 	MexVector<TypeDest, AlDest> &VectorIn){
 
 	if (InputArray != nullptr && !mxIsEmpty(InputArray)){
@@ -370,7 +380,7 @@ inline void getInputfrommxArray(
 }
 
 // Scalar Input
-template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, NonDeduc(T) &ScalarIn, int nOptions = 0, ...){
+template <typename T> inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, NonDeduc(T) &ScalarIn, int nOptions = 0, ...){
 
 	// Getting Input Options
 	MexMemInputOps InputOps;
@@ -381,7 +391,7 @@ template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const 
 	va_end(OptionList);
 
 	InputOps.REQUIRED_SIZE = -1;
-	mxArrayPtr StructFieldPtr = getValidStructField<T>(InputStruct, FieldName, InputOps);
+	const mxArray* StructFieldPtr = getValidStructField<T>(InputStruct, FieldName, InputOps);
 
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray(StructFieldPtr, ScalarIn);
@@ -393,8 +403,8 @@ template <typename T> inline int getInputfromStruct(mxArray *InputStruct, const 
 }
 
 // Scalar Input (Type Casting)
-template <typename TypeSrc, typename TypeDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type> 
-inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeDest &ScalarIn, int nOptions = 0, ...){
+template <typename TypeSrc, typename TypeDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type> 
+inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, TypeDest &ScalarIn, int nOptions = 0, ...){
 
 	// Getting Input Options
 	MexMemInputOps InputOps;
@@ -405,7 +415,7 @@ inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeD
 	va_end(OptionList);
 
 	InputOps.REQUIRED_SIZE = -1;
-	mxArrayPtr StructFieldPtr = getValidStructField<TypeSrc>(InputStruct, FieldName, InputOps);
+	const mxArray* StructFieldPtr = getValidStructField<TypeSrc>(InputStruct, FieldName, InputOps);
 
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray<TypeSrc>(StructFieldPtr, ScalarIn);
@@ -417,7 +427,7 @@ inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, TypeD
 }
 
 // MexVector<T>
-template <typename T, class Al> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<NonDeduc(T), Al> &VectorIn, int nOptions = 0, ...){
+template <typename T, class Al> inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, MexVector<NonDeduc(T), Al> &VectorIn, int nOptions = 0, ...){
 	
 	// processing options for input
 	MexMemInputOps InputOps;
@@ -428,7 +438,7 @@ template <typename T, class Al> inline int getInputfromStruct(mxArray *InputStru
 	va_end(OptionArray);
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<T> >(InputStruct, FieldName, InputOps);
+	const mxArray* StructFieldPtr = getValidStructField<MexVector<T> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr){
 		getInputfrommxArray(StructFieldPtr, VectorIn);
 		return 0;
@@ -442,7 +452,7 @@ template <typename T, class Al> inline int getInputfromStruct(mxArray *InputStru
 // This code is completely the same as the earlier one Except for 
 // additional type checking, as the part that is different uses the 
 // templated call to getInputfrommxArray making all the code identical
-template <typename T, class AlSub, class Al> inline int getInputfromStruct(mxArray *InputStruct, const char* FieldName, MexVector<MexVector<NonDeduc(T), AlSub>, Al> &VectorIn, int nOptions = 0, ...){
+template <typename T, class AlSub, class Al> inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, MexVector<MexVector<NonDeduc(T), AlSub>, Al> &VectorIn, int nOptions = 0, ...){
 
 	// processing options for input
 	MexMemInputOps InputOps;
@@ -467,7 +477,7 @@ template <typename T, class AlSub, class Al> inline int getInputfromStruct(mxArr
 // This function is slightly less secure as strict type compliance is not ensured
 template <typename T, class Al>
 inline int getInputfromStruct(
-	mxArray *InputStruct, const char* FieldName, 
+	const mxArray* InputStruct, const char* FieldName, 
 	MexVector<T, Al> &VectorIn, 
 	void(*struct_inp_fun)(StructArgTable &ArgumentVects, T &DestElem),
 	int nOptions = 0, ...){
@@ -482,7 +492,7 @@ inline int getInputfromStruct(
 
 	// Processing Data
 	// converting Field Name into array of field names by splitting at '-'
-	MexVector<std::string> FieldNamesVect(0);
+	std::vector<std::string> FieldNamesVect(0);
 	StructArgTable StructFieldmxArrays;
 
 	// Split the string into its components by delimeters ' -/,'
@@ -518,18 +528,18 @@ inline int getInputfromStruct(
 			// Store the pointer and data size for current field
 			int ElemSize = mxGetElementSize(StructFieldPtr);
 			StructFieldmxArrays.insert(
-				std::pair<std::string, pair<void*, size_t> >(
+				std::pair<std::string, std::pair<void*, size_t> >(
 					FieldNamesVect[i], 
-					pair<void*, size_t>(mxGetData(StructFieldPtr), ElemSize)
+					std::pair<void*, size_t>(mxGetData(StructFieldPtr), ElemSize)
 				));
 			PrevNumElems = NumElems;
 		}
 		else{
 			// Store the null pointer and 0 size for current field
 			StructFieldmxArrays.insert(
-				std::pair<std::string, pair<void*, size_t> >(
+				std::pair<std::string, std::pair<void*, size_t> >(
 					FieldNamesVect[i],
-					pair<void*, size_t>(nullptr, 0);
+					std::pair<void*, size_t>(nullptr, 0)
 				));
 		}
 	}
@@ -552,7 +562,7 @@ inline int getInputfromStruct(
 // This function is slightly less secure as strict type compliance is not ensured
 template <typename T, class Al>
 inline int getInputfromStruct(
-	mxArray *InputStruct, const char* FieldName,
+	const mxArray* InputStruct, const char* FieldName,
 	MexVector<T, Al> &VectorIn,
 	std::function<void(StructArgTable &ArgumentVects, T &DestElem)> struct_inp_fun,
 	int nOptions = 0, ...){
@@ -567,7 +577,7 @@ inline int getInputfromStruct(
 
 	// Processing Data
 	// converting Field Name into array of field names by splitting at '-'
-	MexVector<std::string> FieldNamesVect(0);
+	std::vector<std::string> FieldNamesVect(0);
 	StructArgTable StructFieldmxArrays;
 
 	// Split the string into its components by delimeters ' -/,'
@@ -634,9 +644,9 @@ inline int getInputfromStruct(
 
 // Type Casting included (implicit)
 
-template <typename TypeSrc, typename TypeDest, class AlDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
+template <typename TypeSrc, typename TypeDest, class AlDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
 inline int getInputfromStruct(
-	mxArray *InputStruct, const char* FieldName,
+	const mxArray* InputStruct, const char* FieldName,
 	MexVector<TypeDest, AlDest> &VectorIn,
 	int nOptions = 0, ...){
 
@@ -660,9 +670,9 @@ inline int getInputfromStruct(
 }
 
 // Type Casting included (explicit)
-template <typename TypeSrc, typename TypeDest, class AlDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
+template <typename TypeSrc, typename TypeDest, class AlDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
 inline int getInputfromStruct(
-	mxArray *InputStruct, const char* FieldName,
+	const mxArray* InputStruct, const char* FieldName,
 	MexVector<TypeDest, AlDest> &VectorIn,
 	void(*casting_fun)(TypeSrc &SrcElem, TypeDest &DestElem),
 	int nOptions = 0, ...){
@@ -687,9 +697,9 @@ inline int getInputfromStruct(
 }
 
 // Type Casting included (explicit) (functors)
-template <typename TypeSrc, typename TypeDest, class AlDest, class B = std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
+template <typename TypeSrc, typename TypeDest, class AlDest, class B = typename std::enable_if<!std::is_same<TypeSrc, TypeDest>::value >::type>
 inline int getInputfromStruct(
-	mxArray *InputStruct,
+	const mxArray* InputStruct,
 	const char* FieldName,
 	MexVector<TypeDest, AlDest> &VectorIn,
 	std::function<void(TypeSrc &, TypeDest &)> casting_fun,

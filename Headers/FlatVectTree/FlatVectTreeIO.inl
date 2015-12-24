@@ -3,11 +3,11 @@
 #define VECT_TREE_FIELD_INFO_(T) FieldInfo< T, typename std::enable_if<isFlatVectTree< T >::value>::type>::
 
 template <typename T>
-inline bool VECT_TREE_FIELD_INFO_(T) CheckType(mxArrayPtr InputmxArray) {
+inline bool VECT_TREE_FIELD_INFO_(T) CheckType(const mxArray* InputmxArray) {
 	bool isValid = true;
 	if (InputmxArray != nullptr && !mxIsEmpty(InputmxArray) && mxIsStruct(InputmxArray)) {
 		// Check if ClassName Field matches 'FlatCellArray'
-		mxArrayPtr ClassNamemxArr = getValidStructField<char16_t>(InputmxArray, "ClassName");
+		const mxArray* ClassNamemxArr = getValidStructField<char16_t>(InputmxArray, "ClassName");
 		if (ClassNamemxArr != nullptr) {
 			char* ClassNameStr = mxArrayToString(ClassNamemxArr);
 			if (!std::strcmp(ClassNameStr, "FlatCellArray")) {
@@ -39,7 +39,7 @@ inline bool VECT_TREE_FIELD_INFO_(T) CheckType(mxArrayPtr InputmxArray) {
 }
 
 template <typename T>
-inline uint32_t VECT_TREE_FIELD_INFO_(T) getSize(mxArrayPtr InputmxArray) {
+inline uint32_t VECT_TREE_FIELD_INFO_(T) getSize(const mxArray* InputmxArray) {
 	
 	// This function performs no validation of the data except for preventing 
 	// read of nullptr
@@ -62,7 +62,7 @@ inline uint32_t VECT_TREE_FIELD_INFO_(T) getSize(mxArrayPtr InputmxArray) {
 }
 
 template<typename T>
-inline uint32_t VECT_TREE_FIELD_INFO_(T) getDepth(mxArrayPtr InputmxArray)
+inline uint32_t VECT_TREE_FIELD_INFO_(T) getDepth(const mxArray* InputmxArray)
 {
 	// This function performs no validation of the data except for preventing 
 	// read of nullptr
@@ -82,7 +82,7 @@ inline uint32_t VECT_TREE_FIELD_INFO_(T) getDepth(mxArrayPtr InputmxArray)
 
 template<typename T>
 inline void VECT_TREE_FIELD_INFO_(T) moveIntoVectors(
-	mxArrayPtr InputmxArray, 
+	const mxArray* InputmxArray, 
 	MexVector<MexVector<uint32_t> >& PartitionIndexIn, 
 	MexVector<typename isFlatVectTree<T>::type>& DataIn)
 {
@@ -94,8 +94,8 @@ inline void VECT_TREE_FIELD_INFO_(T) moveIntoVectors(
 
 	// Getting and type validating the fields "PartitionIndexIn" and "Data"
 	typedef typename isFlatVectTree<T>::type TypeofData;
-	mxArrayPtr PartitionIndexmxArr = getValidStructField<MexVector<MexVector<uint32_t> > >(InputmxArray, "PartitionIndex");
-	mxArrayPtr DatamxArr = getValidStructField<TypeofData>(InputmxArray, "Data");
+	const mxArray* PartitionIndexmxArr = getValidStructField<MexVector<MexVector<uint32_t> > >(InputmxArray, "PartitionIndex");
+	const mxArray* DatamxArr = getValidStructField<TypeofData>(InputmxArray, "Data");
 
 	// Calculating TreeDepth
 	uint32_t TreeDepth = 0;
@@ -147,7 +147,7 @@ template<typename T> inline mxArrayPtr assignmxArray(FlatVectTree<T> &FlatVectTr
 	return ReturnPtr;
 }
 
-template <typename T, class Al> static void getInputfrommxArray(mxArray *InputArray, FlatVectTree<T, Al> &FlatVectTreeIn) {
+template <typename T, class Al> static void getInputfrommxArray(const mxArray* InputArray, FlatVectTree<T, Al> &FlatVectTreeIn) {
 
 	// Note: in this function, it is assumed that InputArray is a Valid FlatVectTreeIn
 	// with non-zero depth.
@@ -161,7 +161,7 @@ template <typename T, class Al> static void getInputfrommxArray(mxArray *InputAr
 	FlatVectTreeIn.assign(PartitionIndex, Data);
 }
 
-template <typename T, class Al> static int getInputfromStruct(mxArray *InputStruct, const char* FieldName, uint32_t RequiredDepth, FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, int nOptions, ...) {
+template <typename T, class Al> static int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, uint32_t RequiredDepth, FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, int nOptions, ...) {
 	// Getting Input Options
 	MexMemInputOps InputOps;
 
@@ -170,7 +170,7 @@ template <typename T, class Al> static int getInputfromStruct(mxArray *InputStru
 	InputOps = getInputOps(nOptions, OptionList);
 	va_end(OptionList);
 
-	mxArrayPtr StructFieldPtr = getValidStructField<FlatVectTree<T,Al> >(InputStruct, FieldName, InputOps);
+	const mxArray* StructFieldPtr = getValidStructField<FlatVectTree<T,Al> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr) {
 		uint32_t GivenTreeDepth = FieldInfo<FlatVectTree<T, Al> >::getDepth(StructFieldPtr);
 		if (GivenTreeDepth > 0 && GivenTreeDepth != RequiredDepth) {

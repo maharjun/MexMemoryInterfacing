@@ -5,9 +5,9 @@
 #include <stdint.h>
 
 #include "VectTreeInfo.hpp"
-#include "..\MexMem.hpp"
-#include "..\GenericMexIO.hpp"
-#include "..\MexTypeTraits.hpp"
+#include "../MexMem.hpp"
+#include "../GenericMexIO.hpp"
+#include "../MexTypeTraits.hpp"
 
 enum FV_ExCodes {
     FV_INVALID_APPEND = 0x01,
@@ -35,7 +35,7 @@ class FlatVectTree {
 	template<typename SubElemT, class AlSub, class Al>
 	inline void appendFast(MexVector<MexVector<SubElemT, AlSub>, Al > &&VectTreeIn);
 
-	template<typename T, class FVT_Al = mxAllocator, class B = typename std::enable_if< std::is_arithmetic<T>::value >::type>
+	template<typename, class, class>
 	friend class FlatVectTree;
 
 public:
@@ -74,7 +74,7 @@ public:
 
 	// Get Vector Tree
 	template<typename SubElemT, class Al, class AlInds>
-	inline void getVectTree(MexVector<SubElemT, Al> &VectTreeOut, const MexVector<uint32_t, AlInds> &Indices);
+	inline void getVectTree(MexVector<SubElemT, Al> &VectTreeOut, const MexVector<uint32_t, AlInds> &Indices = MexVector<uint32_t>(0));
 	template<typename SubElemT, class Al>
 	inline void getVectTree(MexVector<SubElemT, Al> &VectTreeOut, uint32_t NIndices = 0, ...);
 
@@ -109,17 +109,17 @@ struct isFlatVectTree<FlatVectTree<T, Al>, typename std::enable_if<std::is_arith
 
 template <typename T>
 struct FieldInfo<T, typename std::enable_if<isFlatVectTree<T>::value>::type> {
-	static inline bool CheckType(mxArrayPtr InputmxArray);
-	static inline uint32_t getSize(mxArrayPtr InputmxArray);
-	static inline uint32_t getDepth(mxArrayPtr InputmxArray);
-	static inline void moveIntoVectors(mxArrayPtr InputmxArray, 
+	static inline bool CheckType(const mxArray* InputmxArray);
+	static inline uint32_t getSize(const mxArray* InputmxArray);
+	static inline uint32_t getDepth(const mxArray* InputmxArray);
+	static inline void moveIntoVectors(const mxArray* InputmxArray, 
 		MexVector<MexVector<uint32_t> >   &PartitionIndexIn, 
 		MexVector<typename isFlatVectTree<T>::type> &Data);
 };
 
 template <typename T> inline mxArrayPtr assignmxArray(FlatVectTree<T> &FlatVectTreeOut);
-template <typename T, class Al> static void getInputfrommxArray(mxArray *InputArray, FlatVectTree<T, Al> &FlatVectTreeIn);
-template <typename T, class Al> static int getInputfromStruct(mxArray *InputStruct, const char* FieldName, uint32_t RequiredDepth, FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, int nOptions = 0, ...);
+template <typename T, class Al> static void getInputfrommxArray(const mxArray *InputArray, FlatVectTree<T, Al> &FlatVectTreeIn);
+template <typename T, class Al> static int getInputfromStruct(const mxArray *InputStruct, const char* FieldName, uint32_t RequiredDepth, FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, int nOptions = 0, ...);
 
 #include "FlatVectTree.inl"
 #include "FlatVectTreeIO.inl"
