@@ -9,22 +9,20 @@
 
 template <typename T>
 struct GetMexType {
-	static constexpr uint32_t typeVal = mxUNKNOWN_CLASS;
+	static constexpr mxClassID typeVal = mxUNKNOWN_CLASS;
 };
 
-template <> struct GetMexType<                    char16_t > { static constexpr mxClassID typeVal = ::mxCHAR_CLASS   ; };
-template <> struct GetMexType<   signed           char     > { static constexpr mxClassID typeVal = ::mxINT8_CLASS   ; };
-template <> struct GetMexType< unsigned           char     > { static constexpr mxClassID typeVal = ::mxUINT8_CLASS  ; };
-template <> struct GetMexType<   signed short     int      > { static constexpr mxClassID typeVal = ::mxINT16_CLASS  ; };
-template <> struct GetMexType< unsigned short     int      > { static constexpr mxClassID typeVal = ::mxUINT16_CLASS ; };
-template <> struct GetMexType<   signed           int      > { static constexpr mxClassID typeVal = ::mxINT32_CLASS; };
-template <> struct GetMexType< unsigned           int      > { static constexpr mxClassID typeVal = ::mxUINT32_CLASS; };
-template <> struct GetMexType<   signed long      int      > { static constexpr mxClassID typeVal = ::mxINT32_CLASS  ; };
-template <> struct GetMexType< unsigned long      int      > { static constexpr mxClassID typeVal = ::mxUINT32_CLASS ; };
-template <> struct GetMexType<   signed long long int      > { static constexpr mxClassID typeVal = ::mxINT64_CLASS  ; };
-template <> struct GetMexType< unsigned long long int      > { static constexpr mxClassID typeVal = ::mxUINT64_CLASS ; };
-template <> struct GetMexType<                    float    > { static constexpr mxClassID typeVal = ::mxSINGLE_CLASS ; };
-template <> struct GetMexType<                    double   > { static constexpr mxClassID typeVal = ::mxDOUBLE_CLASS ; };
+template <> struct GetMexType < char16_t > { static constexpr mxClassID typeVal = ::mxCHAR_CLASS   ; };
+template <> struct GetMexType < int8_t   > { static constexpr mxClassID typeVal = ::mxINT8_CLASS   ; };
+template <> struct GetMexType < uint8_t  > { static constexpr mxClassID typeVal = ::mxUINT8_CLASS  ; };
+template <> struct GetMexType < int16_t  > { static constexpr mxClassID typeVal = ::mxINT16_CLASS  ; };
+template <> struct GetMexType < uint16_t > { static constexpr mxClassID typeVal = ::mxUINT16_CLASS ; };
+template <> struct GetMexType < int32_t  > { static constexpr mxClassID typeVal = ::mxINT32_CLASS  ; };
+template <> struct GetMexType < uint32_t > { static constexpr mxClassID typeVal = ::mxUINT32_CLASS ; };
+template <> struct GetMexType < int64_t  > { static constexpr mxClassID typeVal = ::mxINT64_CLASS  ; };
+template <> struct GetMexType < uint64_t > { static constexpr mxClassID typeVal = ::mxUINT64_CLASS ; };
+template <> struct GetMexType < float    > { static constexpr mxClassID typeVal = ::mxSINGLE_CLASS ; };
+template <> struct GetMexType < double   > { static constexpr mxClassID typeVal = ::mxDOUBLE_CLASS ; };
 
 template <typename T, class Al>              struct GetMexType<MexVector<T, Al> >                   { static constexpr uint32_t typeVal = GetMexType<T>::typeVal; };
 template <typename T, class AlSub, class Al> struct GetMexType<MexVector<MexVector<T, AlSub>, Al> > { static constexpr uint32_t typeVal = mxCELL_CLASS; };

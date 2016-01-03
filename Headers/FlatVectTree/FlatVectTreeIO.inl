@@ -141,8 +141,8 @@ template<typename T> inline mxArrayPtr assignmxArray(FlatVectTree<T> &FlatVectTr
 	FlatVectTreeOut.releaseMem(PartitionIndex, Data);
 
 	mxSetField(ReturnPtr, 0, "ClassName"     , mxCreateString("FlatCellArray"));
-	mxSetField(ReturnPtr, 0, "PartitionIndex", assignmxArray(PartitionIndex, mxUINT32_CLASS));
-	mxSetField(ReturnPtr, 0, "Data"          , assignmxArray(Data          , GetMexType<T>::typeVal));
+	mxSetField(ReturnPtr, 0, "PartitionIndex", assignmxArray(PartitionIndex));
+	mxSetField(ReturnPtr, 0, "Data"          , assignmxArray(Data          ));
 
 	return ReturnPtr;
 }
@@ -161,14 +161,10 @@ template <typename T, class Al> static void getInputfrommxArray(const mxArray* I
 	FlatVectTreeIn.assign(PartitionIndex, Data);
 }
 
-template <typename T, class Al> static int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, uint32_t RequiredDepth, FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, int nOptions, ...) {
-	// Getting Input Options
-	MexMemInputOps InputOps;
-
-	va_list OptionList;
-	va_start(OptionList, nOptions);
-	InputOps = getInputOps(nOptions, OptionList);
-	va_end(OptionList);
+template <typename T, class Al> static int getInputfromStruct(
+	const mxArray* InputStruct, const char* FieldName, 
+	FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, uint32_t RequiredDepth, 
+	MexMemInputOps InputOps) {
 
 	const mxArray* StructFieldPtr = getValidStructField<FlatVectTree<T,Al> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr) {
