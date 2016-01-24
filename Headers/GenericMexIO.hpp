@@ -517,7 +517,7 @@ inline void getInputfrommxArray(const mxArray* InputArray, MexVector<MexVector<T
 		mxArrayPtr* tempArrayPtr = reinterpret_cast<mxArrayPtr*>(mxGetData(InputArray));
 		VectorIn = MexVector<MexVector<T> >(NumElems, MexVector<T>(0));
 		for (int i = 0; i < NumElems; ++i){
-			getInputfrommxArray(tempArrayPtr[i], VectorIn[i]);
+			getInputfrommxArray<T>(tempArrayPtr[i], VectorIn[i]);
 		}
 	}
 }
@@ -531,9 +531,9 @@ inline int getInputfromStruct(
 	MexMemInputOps InputOps = MexMemInputOps()) {
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<MexVector<T> > >(InputStruct, FieldName, InputOps);
+	const mxArray * StructFieldPtr = getValidStructField<MexVector<MexVector<T> > >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr) {
-		getInputfrommxArray(StructFieldPtr, VectorIn);
+		getInputfrommxArray<T>(StructFieldPtr, VectorIn);
 		return 0;
 	}
 	else {
