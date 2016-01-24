@@ -191,6 +191,16 @@ public:
 			M.isCurrentMemExternal = true;
 		}
 	}
+	inline MexVector(const std::initializer_list<T> &ConstructorList_) {
+		Array_Beg = Array_Last = Array_End = nullptr;
+		isCurrentMemExternal = false;
+
+		size_t ListSize = ConstructorList_.size();
+		resize(ListSize);
+		for (size_t j = 0; j < ListSize; ++j) {
+			Array_Beg[j] = *(ConstructorList_.begin() + j);
+		}
+	}
 	inline explicit MexVector(size_t Size, const T &Elem){
 		if (Size > 0){
 			size_t NumExtraBytes = Size*sizeof(T);
