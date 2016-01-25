@@ -566,7 +566,7 @@ inline int getInputfromStruct(
 
 	for (int i = 0; i < FieldNamesVect.size(); ++i){
 
-		mxArrayPtr StructFieldPtr;
+		const mxArray * StructFieldPtr;
 
 		// Size constraints are imposed based on wether 
 		// a) A prerequisite size has been specified
@@ -643,7 +643,7 @@ inline int getInputfromStruct(
 
 	for (int i = 0; i < FieldNamesVect.size(); ++i){
 
-		mxArrayPtr StructFieldPtr;
+		const mxArray * StructFieldPtr;
 
 		// Size constraints are imposed based on wether 
 		// a) A prerequisite size has been specified
