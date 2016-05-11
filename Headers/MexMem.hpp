@@ -4,6 +4,7 @@
 #include <matrix.h>
 #include <type_traits>
 #include <chrono>
+#include <iterator>
 
 typedef mxArray* mxArrayPtr;
 
@@ -229,6 +230,16 @@ public:
 		Array_Last(Array_ + Size), 
 		Array_End(Array_ + Size), 
 		isCurrentMemExternal(Size ? !SelfManage : false){}
+	// STL Interfacing constructor
+	inline MexVector(
+		const std::iterator<std::input_iterator_tag,T> &Begin,
+		const std::iterator<std::input_iterator_tag,T> &End)
+		: MexVector() {
+		
+		for (auto Iter = Begin; Iter != End; ++Iter) {
+			this->push_back(*Iter);
+		}
+	}
 
 	inline ~MexVector(){
 		if (!isCurrentMemExternal && Array_Beg != NULL){
