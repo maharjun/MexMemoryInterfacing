@@ -367,7 +367,6 @@ public:
 		}
 		else {
 			size_t Capacity = this->capacity();
-			int Exp = 0;
 			Capacity = Capacity ? Capacity + (Capacity >> 1) + 1 : 4;
 			reserve(Capacity);
 			*Array_Last = Val;
@@ -968,7 +967,6 @@ public:
 	}
 	template<typename Al2> inline void resizeRows(size_t NewNRows, const MexVector<T, Al2> &RowVal) {
 		size_t PrevSize = NRows * NCols;
-		size_t NewSize  = NewNRows * NCols;
 		resizeRows(NewNRows);
 		for (size_t j = PrevSize/NCols; j < NewNRows; ++j) {
 			this->operator[](j) = RowVal;
@@ -1030,8 +1028,8 @@ public:
 	}
 	inline void sharewith(MexMatrix &M) const {
 		if (!M.isCurrentMemExternal && M.Array_Beg != NULL){
-			resize(0, 0);		// Ensure destruction of elements
-			trim();
+			M.resize(0, 0);		// Ensure destruction of elements
+			M.trim();
 		}
 		if (Capacity > 0){
 			M.NRows = NRows;
