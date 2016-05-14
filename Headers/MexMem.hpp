@@ -102,6 +102,32 @@ class MexVector{
 	template<typename T2, typename Al2>
 	friend class MexVector;
 
+	void ShiftElemsBackward(T* BeginIter, T* EndIter, size_t Offset) {
+		// This function does not attempt any resizing / reallocation
+		// it is the responsibility of any function calling this to 
+		// perform the above actions. In case the shift pushes elements
+		// before 0, the elements are truncated. This function also does
+		// not clean / deallocate any of the cells that are left empty
+		// after the shift
+
+		if (Offset) {
+			auto BeginPos = (BeginIter >= Array_Beg + Offset) ? BeginIter - Offset : Array_Beg;
+			for (auto i = BeginPos; i < EndIter - Offset; ++i) {
+				*i = std::move(*(i + Offset));
+			}
+		}
+	}
+	void ShiftElemsForward(T* BeginIter, T* EndIter, size_t Offset) {
+		// This function does not attempt any resizing / reallocation
+		// it is the responsibility of any function calling this to 
+		// perform the above actions
+		if (Offset) {
+			auto EndPos = (EndIter <= Array_End - Offset) ? EndIter + Offset : Array_End;
+			for (auto i = Array_End; i >= BeginIter + Offset; --i) {
+				*i = std::move(*(i - Offset));
+			}
+		}
+	}
 public:
 	typedef T* iterator;
 
@@ -231,14 +257,12 @@ public:
 		Array_End(Array_ + Size), 
 		isCurrentMemExternal(Size ? !SelfManage : false){}
 	// STL Interfacing constructor
+	template <typename InputIterator>
 	inline MexVector(
-		const std::iterator<std::input_iterator_tag,T> &Begin,
-		const std::iterator<std::input_iterator_tag,T> &End)
+		const InputIterator &Begin,
+		const InputIterator &End)
 		: MexVector() {
-		
-		for (auto Iter = Begin; Iter != End; ++Iter) {
-			this->push_back(*Iter);
-		}
+		assign(Begin, End);
 	}
 
 	inline ~MexVector(){
@@ -371,6 +395,21 @@ public:
 		Array_End = Array_Beg + Size;
 		return *this;
 	}
+	template <typename InputIterator>
+	inline       MexVector & assign(
+		const InputIterator &Begin, 
+		const InputIterator &End) {
+		// Assert if Iterator is an InputIterator
+		static_assert(
+			std::is_base_of<
+			std::input_iterator_tag,
+			typename std::iterator_traits<InputIterator>::iterator_category
+			>::value, "The Iterator must be an input iterator");
+		for (auto Iter = Begin; Iter != End; ++Iter) {
+			this->push_back(*Iter);
+		}
+		return *this;
+	}
 	inline void push_back(const T &Val){
 		if (Array_Last != Array_End){
 			*Array_Last = Val;
@@ -384,6 +423,20 @@ public:
 			++Array_Last;
 		}
 	}
+	inline void push_back(T &&Val) {
+		if (Array_Last != Array_End) {
+			*Array_Last = std::move(Val);
+			++Array_Last;
+		}
+		else {
+			size_t Capacity = this->capacity();
+			Capacity = Capacity ? Capacity + (Capacity >> 1) + 1 : 4;
+			reserve(Capacity);
+			*Array_Last = std::move(Val);
+			++Array_Last;
+		}
+	}
+
 	inline void push_size(size_t Increment){
 		if (Array_Last + Increment> Array_End){
 			size_t CurrCapacity = this->capacity();
@@ -396,6 +449,77 @@ public:
 		}
 		Array_Last += Increment;
 	}
+	template<typename InputIterator>
+	inline void insert(size_t Position, const InputIterator &Begin, const InputIterator &End) {
+		constexpr bool IsRandomAccessIterator = std::is_base_of<
+			std::random_access_iterator_tag,
+			typename std::iterator_traits<InputIterator>::iterator_category
+		>::value;
+		constexpr bool IsForwardIterator = std::is_base_of<
+			std::forward_iterator_tag,
+			typename std::iterator_traits<InputIterator>::iterator_category
+		>::value;
+		constexpr bool IsInputIterator = std::is_base_of<
+			std::input_iterator_tag,
+			typename std::iterator_traits<InputIterator>::iterator_category
+		>::value;
+		static_assert(IsInputIterator, "The Iterator must be an input iterator");
+
+		size_t InsertSize=0;
+		if(IsForwardIterator)
+			if(IsRandomAccessIterator)
+				InsertSize = End - Begin;
+			else
+				for (auto Iter = Begin; Iter != End; ++Iter)
+					InsertSize++;
+
+		if(IsForwardIterator) {
+			resize(this->size() + InsertSize);
+			ShiftElemsForward(Array_Beg + Position, Array_End - InsertSize, InsertSize);
+			
+			// Assign the elements
+			auto thisArrayIter = Array_Beg + Position;
+			for (auto iter = Begin; iter < End; ++iter, ++thisArrayIter) {
+				*thisArrayIter = *iter;
+			}
+		}
+		else {
+			// Initialize TempVector to store all the elements after the insertion point.
+			MexVector<T> TempVector;
+			for (auto iter = Array_Beg + Position; iter < Array_End; ++iter) {
+				TempVector.push_back(std::move(*iter));
+			}
+			// resize current array and push new elements
+			resize(Position);
+			for (auto iter = Begin; iter != End; ++iter) {
+				this->push_back(*iter);
+			}
+			// add new elements
+			for (auto &item:TempVector) {
+				TempVector.push_back(std::move(item));
+			}
+		}
+	}
+	inline void insert(size_t Position, const std::initializer_list<T> &Elems2Insert) {
+		insert(Position, Elems2Insert.begin(), Elems2Insert.end());
+	}
+	template <typename Al2>
+	inline void insert(size_t Position, const MexVector<T, Al2> &MexVector) {
+		insert(Position, MexVector.begin(), MexVector.end());
+	}
+	inline void insert(size_t Position, const T &Value) {
+		insert(Position, &Value, &Value + 1);
+	}
+
+	inline void erase(size_t BeginIndex, size_t EndIndex) {
+		size_t Offset = (EndIndex >= BeginIndex) ? EndIndex - BeginIndex : 0;
+		ShiftElemsBackward(Array_Beg + EndIndex, Array_End, Offset);
+		resize(this->size() - Offset);
+	}
+	inline void erase(size_t Position) {
+		erase(Position, Position + 1);
+	}
+
 	inline T pop_back() {
 		T tempStorage;
 		if (!this->isCurrentMemExternal) {
