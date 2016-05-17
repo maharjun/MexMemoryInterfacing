@@ -35,7 +35,7 @@ template<typename TypeDest, typename T> inline mxArrayPtr assignmxArray(T &Scala
 	mxClassID ClassID = GetMexType<TypeDest>::typeVal;
 	mxArrayPtr ReturnPointer;
 
-	if (is_arithmetic<T>::value){
+	if (std::is_arithmetic<T>::value){
 		ReturnPointer = mxCreateNumericMatrix_730(1, 1, ClassID, mxREAL);
 		*reinterpret_cast<TypeDest *>(mxGetData(ReturnPointer)) = (TypeDest)ScalarOut;
 	}
@@ -332,7 +332,7 @@ inline void getInputfrommxArray(const mxArray* InputArray, TypeDest &ScalarIn){
 
 template <typename TypeSrc, typename TypeDest>
 inline void getInputfrommxArray(const mxArray* InputArray, TypeDest &ScalarIn,
-	void(*casting_func)(TypeSrc &SrcElem, TypeDest &DestElem)) {
+	TypeDest(*casting_func)(TypeSrc &SrcElem)) {
 	if (InputArray != nullptr && !mxIsEmpty(InputArray))
 		ScalarIn = casting_func(*reinterpret_cast<TypeSrc *>(mxGetData(InputArray)));
 }
@@ -363,8 +363,8 @@ inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName,
 }
 
 template <typename TypeSrc, typename TypeDest>
-inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, TypeDest &ScalarIn, 
-	void(*casting_func)(TypeSrc &SrcElem, TypeDest &DestElem),
+inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, TypeDest &ScalarIn,
+	TypeDest(*casting_func)(TypeSrc &SrcElem),
 	MexMemInputOps InputOps = MexMemInputOps()) {
 
 	InputOps.REQUIRED_SIZE = -1;
@@ -381,7 +381,7 @@ inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName,
 
 template <typename TypeSrc, typename TypeDest>
 inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, TypeDest &ScalarIn,
-	std::function<void(TypeSrc &, TypeDest &)> &casting_func,
+	std::function<TypeDest void(TypeSrc &)> &casting_func,
 	MexMemInputOps InputOps = MexMemInputOps()) {
 
 	InputOps.REQUIRED_SIZE = -1;
@@ -476,7 +476,7 @@ inline int getInputfromStruct(
 	MexMemInputOps InputOps = MexMemInputOps()) {
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<TypeSrc> >(InputStruct, FieldName, InputOps);
+	const mxArray* StructFieldPtr = getValidStructField<MexVector<TypeSrc> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr) {
 		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn, casting_func);
 		return 0;
@@ -494,7 +494,7 @@ inline int getInputfromStruct(
 	MexMemInputOps InputOps = MexMemInputOps()) {
 
 	// Processing Data
-	mxArrayPtr StructFieldPtr = getValidStructField<MexVector<TypeSrc> >(InputStruct, FieldName, InputOps);
+	const mxArray* StructFieldPtr = getValidStructField<MexVector<TypeSrc> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr) {
 		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, VectorIn, casting_func);
 		return 0;
