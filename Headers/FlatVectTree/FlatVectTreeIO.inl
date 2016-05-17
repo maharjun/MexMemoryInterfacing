@@ -161,9 +161,9 @@ template <typename T, class Al> static void getInputfrommxArray(const mxArray* I
 	FlatVectTreeIn.assign(PartitionIndex, Data);
 }
 
-template <typename T, class Al> static int getInputfromStruct(
+template <typename TSpec, typename T, typename B, class Al> static int getInputfromStruct(
 	const mxArray* InputStruct, const char* FieldName, 
-	FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, uint32_t RequiredDepth, 
+	FlatVectTree<T, Al> &FlatVectTreeIn, uint32_t RequiredDepth,
 	MexMemInputOps InputOps) {
 
 	const mxArray* StructFieldPtr = getValidStructField<FlatVectTree<T,Al> >(InputStruct, FieldName, InputOps);

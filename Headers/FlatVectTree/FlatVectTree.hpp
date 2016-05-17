@@ -119,7 +119,12 @@ struct FieldInfo<T, typename std::enable_if<isFlatVectTree<T>::value>::type> {
 
 template <typename T> inline mxArrayPtr assignmxArray(FlatVectTree<T> &FlatVectTreeOut);
 template <typename T, class Al> static void getInputfrommxArray(const mxArray *InputArray, FlatVectTree<T, Al> &FlatVectTreeIn);
-template <typename T, class Al> static int getInputfromStruct(const mxArray *InputStruct, const char* FieldName, FlatVectTree<NonDeduc(T), Al> &FlatVectTreeIn, uint32_t RequiredDepth, MexMemInputOps InputOps = MexMemInputOps());
+template <
+	typename TSpec,
+	typename T,
+	typename B=std::enable_if<std::is_same<T,TSpec>::value>::type,
+	class Al>
+static int getInputfromStruct(const mxArray *InputStruct, const char* FieldName, FlatVectTree<T, Al> &FlatVectTreeIn, uint32_t RequiredDepth, MexMemInputOps InputOps = MexMemInputOps());
 
 #include "FlatVectTree.inl"
 #include "FlatVectTreeIO.inl"

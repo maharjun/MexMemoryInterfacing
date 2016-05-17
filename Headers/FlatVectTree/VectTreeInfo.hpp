@@ -20,20 +20,26 @@ struct getTreeInfo<
 		>::type
 	>
 	{
-	static const int depth = getTreeInfo<
+	static constexpr int depth = getTreeInfo<
 		typename std::remove_reference<
 			typename std::remove_cv<T>::type
 		>::type
 	>::depth;
-	typedef typename getTreeInfo<typename std::remove_reference<typename std::remove_cv<T>::type>::type>::type type;
+	typedef
+        typename getTreeInfo<
+            typename std::remove_reference<
+                typename std::remove_cv<T>::type
+            >::type
+        >::type
+        type;
 };
 
 template <typename T, class Al> struct getTreeInfo<MexVector<T, Al> > {
-	static const int depth = 0;
+	static constexpr int depth = 0;
 	typedef T type;
 };
 template <typename T, class Al> struct getTreeInfo<MexVector<MexVector<T, Al> > > {
-	static const int depth = getTreeInfo<MexVector<T> >::depth + 1;
+	static constexpr int depth = getTreeInfo<MexVector<T> >::depth + 1;
 	typedef typename getTreeInfo<MexVector<T> >::type type;
 };
 
