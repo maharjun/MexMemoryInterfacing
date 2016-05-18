@@ -665,7 +665,7 @@ public:
 				Al::deallocate(Array_Beg);
 				Array_Beg = nullptr;
 				Array_Last = nullptr;
-				Array_Last = nullptr;
+				Array_End = nullptr;
 				isCurrentMemExternal = false;
 			}
 			else if (Array_Beg != nullptr) {
