@@ -381,7 +381,7 @@ inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName,
 
 template <typename TypeSrc, typename TypeDest>
 inline int getInputfromStruct(const mxArray* InputStruct, const char* FieldName, TypeDest &ScalarIn,
-	std::function<TypeDest void(TypeSrc &)> &casting_func,
+	std::function<TypeDest(TypeSrc &)> &casting_func,
 	MexMemInputOps InputOps = MexMemInputOps()) {
 
 	InputOps.REQUIRED_SIZE = -1;
