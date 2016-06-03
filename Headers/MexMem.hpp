@@ -123,7 +123,7 @@ class MexVector{
 		// perform the above actions
 		if (Offset) {
 			auto EndPos = (EndIter <= Array_End - Offset) ? EndIter + Offset : Array_End;
-			for (auto i = Array_End; i >= BeginIter + Offset; --i) {
+			for (auto i = EndPos; i --> BeginIter + Offset ;) {
 				*i = std::move(*(i - Offset));
 			}
 		}
