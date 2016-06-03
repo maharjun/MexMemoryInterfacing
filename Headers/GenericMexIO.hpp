@@ -46,7 +46,8 @@ template<typename TypeDest, typename T> inline mxArrayPtr assignmxArray(T &Scala
 	return ReturnPointer;
 }
 
-template<typename T> inline mxArrayPtr assignmxArray(MexMatrix<T> &MatrixOut){
+template<typename T, class Al, class B=typename std::enable_if<std::is_same<Al, mxAllocator>::value>::type>
+inline mxArrayPtr assignmxArray(MexMatrix<T, Al> &MatrixOut){
 
 	mxClassID ClassID = GetMexType<T>::typeVal;
 	mxArrayPtr ReturnPointer = mxCreateNumericMatrix_730(0, 0, ClassID, mxREAL);
@@ -61,7 +62,8 @@ template<typename T> inline mxArrayPtr assignmxArray(MexMatrix<T> &MatrixOut){
 	return ReturnPointer;
 }
 
-template<typename T> inline mxArrayPtr assignmxArray(MexVector<T> &VectorOut){
+template<typename T, class Al, class B=typename std::enable_if<std::is_same<Al, mxAllocator>::value>::type>
+inline mxArrayPtr assignmxArray(MexVector<T, Al> &VectorOut){
 
 	mxClassID ClassID = GetMexType<T>::typeVal;
 	mxArrayPtr ReturnPointer = mxCreateNumericMatrix_730(0, 0, ClassID, mxREAL);
@@ -75,7 +77,8 @@ template<typename T> inline mxArrayPtr assignmxArray(MexVector<T> &VectorOut){
 	return ReturnPointer;
 }
 
-template<typename T> inline mxArrayPtr assignmxArray(MexVector<MexVector<T> > &VectorOut){
+template<typename T, class Al, class AlSub>
+inline mxArrayPtr assignmxArray(MexVector<MexVector<T, Al>, AlSub> &VectorOut){
 
 	mxClassID ClassID = GetMexType<T>::typeVal;
 	mxArrayPtr ReturnPointer;
