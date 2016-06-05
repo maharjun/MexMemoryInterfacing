@@ -122,7 +122,7 @@ template <typename T, class Al> static void getInputfrommxArray(const mxArray *I
 template <
 	typename TSpec,
 	typename T,
-	typename B=std::enable_if<std::is_same<T,TSpec>::value>::type,
+	typename B=typename std::enable_if<std::is_same<T,TSpec>::value>::type,
 	class Al>
 static int getInputfromStruct(const mxArray *InputStruct, const char* FieldName, FlatVectTree<T, Al> &FlatVectTreeIn, uint32_t RequiredDepth, MexMemInputOps InputOps = MexMemInputOps());
 
