@@ -257,7 +257,7 @@ public:
 		Array_End(Array_ + Size), 
 		isCurrentMemExternal(Size ? !SelfManage : false){}
 	// STL Interfacing constructor
-	template <typename InputIterator>
+	template <typename InputIterator, class B=typename std::iterator_traits<InputIterator>::iterator_category>
 	inline MexVector(
 		const InputIterator &Begin,
 		const InputIterator &End)
@@ -395,7 +395,7 @@ public:
 		Array_End = Array_Beg + Size;
 		return *this;
 	}
-	template <typename InputIterator>
+	template <typename InputIterator, class B=typename std::iterator_traits<InputIterator>::iterator_category>
 	inline       MexVector & assign(
 		const InputIterator &Begin, 
 		const InputIterator &End) {
@@ -449,7 +449,7 @@ public:
 		}
 		Array_Last += Increment;
 	}
-	template<typename InputIterator>
+	template <typename InputIterator, class B=typename std::iterator_traits<InputIterator>::iterator_category>
 	inline void insert(size_t Position, const InputIterator &Begin, const InputIterator &End) {
 		constexpr bool IsRandomAccessIterator = std::is_base_of<
 			std::random_access_iterator_tag,
