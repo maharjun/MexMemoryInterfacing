@@ -630,7 +630,7 @@ template <typename T, class Al>
 inline int getInputfromStruct(
 	const mxArray* InputStruct, const char* FieldName,
 	MexVector<T, Al> &VectorIn,
-	std::function<void(StructArgTable &ArgumentVects, T &DestElem)> &struct_inp_fun,
+	const std::function<void(StructArgTable &ArgumentVects, T &DestElem)> &struct_inp_fun,
 	MexMemInputOps InputOps = MexMemInputOps()){
 
 	// Processing Data
