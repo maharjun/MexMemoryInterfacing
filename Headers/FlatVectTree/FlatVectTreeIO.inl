@@ -1,4 +1,5 @@
 #include "FlatVectTree.hpp"
+#include <cstring>
 
 #define VECT_TREE_FIELD_INFO_(T) FieldInfo< T, typename std::enable_if<isFlatVectTree< T >::value>::type>::
 
