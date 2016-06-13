@@ -123,7 +123,11 @@ struct FieldInfo<T, typename std::enable_if<std::is_arithmetic<T>::value >::type
 template<typename T>
 struct FieldInfo<T, typename std::enable_if<isMexVector<T>::value>::type> {
 	static inline bool CheckType(const mxArray* InputmxArray) {
-		return (InputmxArray == nullptr || mxIsEmpty(InputmxArray) || mxGetClassID(InputmxArray) == GetMexType<typename isMexVector<T>::type>::typeVal);
+		return (InputmxArray == nullptr
+		        || mxIsEmpty(InputmxArray)
+		        || mxGetNumberOfDimensions(InputmxArray) == 2  // Check if 2-D Array
+		           && (mxGetN(InputmxArray) == 1 || mxGetM(InputmxArray) == 1)  // Check if 1-D
+		           && mxGetClassID(InputmxArray) == GetMexType<typename isMexVector<T>::type>::typeVal); // Check Type
 	}
 	static inline uint32_t getSize(const mxArray* InputmxArray) {
 		size_t NumElems = 0;
