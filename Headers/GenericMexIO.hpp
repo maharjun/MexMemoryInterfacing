@@ -508,6 +508,126 @@ inline int getInputfromStruct(
 }
 
 //////////////////////////////////////////////////////////////////
+////////////////////////// MATRIX INPUT //////////////////////////
+//////////////////////////////////////////////////////////////////
+
+// -------- From mxArray -------- //
+
+template <typename TypeSrc, typename TypeDest, class AlDest>
+inline void getInputfrommxArray(
+	const mxArray* InputArray,
+	MexMatrix<TypeDest, AlDest> &MatrixIn) {
+
+	if (InputArray != nullptr && !mxIsEmpty(InputArray)) {
+		size_t NDim0 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 0);
+		size_t NDim1 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 1);
+
+		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
+		MatrixIn.resize(NDim1, NDim0); // This will not erase old data
+		for (int i=0; i<NDim1; ++i) {
+			for (int j=0; j<NDim0; ++j) {
+				MatrixIn(i,j) = (TypeDest)tempArrayPtr[NDim0*i + j];
+			}
+		}
+	}
+}
+
+template <typename TypeSrc, typename TypeDest, class AlDest>
+inline void getInputfrommxArray(
+	const mxArray* InputArray,
+	MexMatrix<TypeDest, AlDest> &MatrixIn,
+	void(*casting_func)(TypeSrc &SrcElem, TypeDest &DestElem)) {
+
+	if (InputArray != nullptr && !mxIsEmpty(InputArray)) {
+		size_t NDim0 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 0);
+		size_t NDim1 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 1);
+
+		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
+		MatrixIn.resize(NDim1, NDim0); // This will not erase old data
+		for (int i=0; i<NDim1; ++i) {
+			for (int j=0; j<NDim0; ++j) {
+				casting_func(tempArrayPtr[NDim0*i + j], MatrixIn(i,j));
+			}
+		}
+	}
+}
+
+template <typename TypeSrc, typename TypeDest, class AlDest>
+inline void getInputfrommxArray(
+	const mxArray* InputArray,
+	MexMatrix<TypeDest, AlDest> &MatrixIn,
+	std::function<void(TypeSrc &, TypeDest &)> &casting_func) {
+
+	if (InputArray != nullptr && !mxIsEmpty(InputArray)) {
+		size_t NDim0 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 0);
+		size_t NDim1 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 1);
+
+		TypeSrc* tempArrayPtr = reinterpret_cast<TypeSrc*>(mxGetData(InputArray));
+		MatrixIn.resize(NDim1, NDim0); // This will not erase old data
+		for (int i=0; i<NDim1; ++i) {
+			for (int j=0; j<NDim0; ++j) {
+				casting_func(tempArrayPtr[NDim0*i + j], MatrixIn(i,j));
+			}
+		}
+	}
+}
+
+// -------- From Structure Field -------- //
+
+template <typename TypeSrc, typename TypeDest, class AlDest>
+inline int getInputfromStruct(
+	const mxArray* InputStruct, const char* FieldName,
+	MexMatrix<TypeDest, AlDest> &MatrixIn,
+	MexMemInputOps InputOps = MexMemInputOps()) {
+
+	// Processing Data
+	const mxArray* StructFieldPtr = getValidStructField<MexMatrix<TypeSrc> >(InputStruct, FieldName, InputOps);
+	if (StructFieldPtr != nullptr) {
+		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, MatrixIn);
+		return 0;
+	}
+	else {
+		return 1;
+	}
+}
+
+template <typename TypeSrc, typename TypeDest, class AlDest>
+inline int getInputfromStruct(
+	const mxArray* InputStruct, const char* FieldName,
+	MexMatrix<TypeDest, AlDest> &MatrixIn,
+	void(*casting_func)(TypeSrc &SrcElem, TypeDest &DestElem),
+	MexMemInputOps InputOps = MexMemInputOps()) {
+
+	// Processing Data
+	const mxArray* StructFieldPtr = getValidStructField<MexMatrix<TypeSrc> >(InputStruct, FieldName, InputOps);
+	if (StructFieldPtr != nullptr) {
+		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, MatrixIn, casting_func);
+		return 0;
+	}
+	else {
+		return 1;
+	}
+}
+
+template <typename TypeSrc, typename TypeDest, class AlDest>
+inline int getInputfromStruct(
+	const mxArray* InputStruct, const char* FieldName,
+	MexMatrix<TypeDest, AlDest> &MatrixIn,
+	std::function<void(TypeSrc &, TypeDest &)> &casting_func,
+	MexMemInputOps InputOps = MexMemInputOps()) {
+
+	// Processing Data
+	const mxArray* StructFieldPtr = getValidStructField<MexMatrix<TypeSrc> >(InputStruct, FieldName, InputOps);
+	if (StructFieldPtr != nullptr) {
+		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, MatrixIn, casting_func);
+		return 0;
+	}
+	else {
+		return 1;
+	}
+}
+
+//////////////////////////////////////////////////////////////////
 ///////////////////////// VECTVECT INPUT /////////////////////////
 //////////////////////////////////////////////////////////////////
 

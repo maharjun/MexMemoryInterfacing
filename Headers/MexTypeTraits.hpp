@@ -54,6 +54,16 @@ template <typename T, class Al>
 		typedef T elemType;
 	};
 
+// Type Traits extraction for Matrix
+template <typename T, typename B = void> 
+	struct isMexMatrixBasic
+		{ static constexpr bool value = false; };
+template <typename T, class Al> 
+	struct isMexMatrixBasic<MexMatrix<T, Al>, typename std::enable_if<std::is_arithmetic<T>::value>::type>
+		{ static constexpr bool value = true; typedef T type; };
+template <typename T> 
+	struct isMexMatrix : public isMexMatrixBasic<typename std::decay<T>::type> {};
+
 inline bool isMexVectorType(mxClassID ClassIDin) {
 	switch (ClassIDin) {
 		case mxINT8_CLASS   :
@@ -135,6 +145,32 @@ struct FieldInfo<T, typename std::enable_if<isMexVector<T>::value>::type> {
 		// If array is non-empty, calculate size
 		if (InputmxArray != nullptr && !mxIsEmpty(InputmxArray)) {
 			NumElems = mxGetNumberOfElements(InputmxArray);
+		}
+		return NumElems;
+	}
+};
+
+// Type Checking for Matrix of Scalars
+template<typename T>
+struct FieldInfo<T, typename std::enable_if<isMexMatrix<T>::value>::type> {
+	static inline bool CheckType(const mxArray* InputmxArray) {
+		return (InputmxArray == nullptr
+		        || mxIsEmpty(InputmxArray)
+		        || mxGetNumberOfDimensions(InputmxArray) == 2
+		           && mxGetClassID(InputmxArray) == GetMexType<typename isMexMatrix<T>::type>::typeVal);
+	}
+	static inline uint32_t getSize(const mxArray* InputmxArray, uint32_t Dimension=0) {
+		// Ths function assumes tat InputmxArray represents a valid Matrix. If not
+		// then the result is undefined. Validate using CheckType prior to calling
+		// this function.
+
+		uint32_t NumElems = 0;
+
+		// If array is non-empty, calculate size
+		if (InputmxArray != nullptr && !mxIsEmpty(InputmxArray)) {
+			auto ArrayDims = mxGetDimensions(InputmxArray);
+			if (Dimension < 2)
+				NumElems = ArrayDims[Dimension];
 		}
 		return NumElems;
 	}
