@@ -97,6 +97,27 @@ inline void StringSplit(const char* InputString, const char* DelimString, std::v
 	} while (tempInputString.length() != 0);
 }
 
+inline mxArrayPtr assignmxStruct(const std::initializer_list<const char*> &FieldNames,
+                                 const std::initializer_list<mxArrayPtr> &FieldmxArrays) {
+
+	// This creates an Mex Struct with the given parameters
+	// Validate Size equality of FieldNames and FieldmxArrays
+	if (FieldNames.size() != FieldmxArrays.size()) {
+		WriteException(ExOps::EXCEPTION_INVALID_INPUT,
+		               "The Size of FieldNames (%d) must be equal to the size of FieldmxArrays (%d)",
+		               FieldNames.size(), FieldmxArrays.size());
+	}
+	size_t Size[] = {1, 1};
+	mxArrayPtr ReturnStruct = mxCreateStructArray(2, Size, 0, nullptr);
+	auto NInputs = FieldNames.size();
+	for(size_t i=0; i < NInputs; ++i) {
+		mxAddField(ReturnStruct, FieldNames.begin()[i]);
+		mxSetField(ReturnStruct, 0, FieldNames.begin()[i], FieldmxArrays.begin()[i]);
+	}
+
+	return  ReturnStruct;
+}
+
 //////////////////////////////////////////////////////////////////
 //////////////////////// OUTPUT FUNCTIONS ////////////////////////
 //////////////////////////////////////////////////////////////////
