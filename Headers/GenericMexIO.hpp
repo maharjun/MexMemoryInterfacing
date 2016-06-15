@@ -27,6 +27,77 @@
 typedef std::unordered_map<std::string, std::pair<void*, size_t> > StructArgTable;
 
 //////////////////////////////////////////////////////////////////
+///////////////////// BASIC HELPER FUNCTIONS /////////////////////
+//////////////////////////////////////////////////////////////////
+
+inline void vWriteOutput(const char *Format, std::va_list Args) {
+	char buffertemp[256], bufferFinal[256];
+	vsnprintf(buffertemp, 256, Format, Args);
+
+	char* tempIter = buffertemp;
+	char* FinalIter = bufferFinal;
+	for (; *tempIter != 0; ++tempIter, ++FinalIter) {
+		if (*tempIter == '%') {
+			*FinalIter = '%';
+			++FinalIter;
+			*FinalIter = '%';
+		}
+		else {
+			*FinalIter = *tempIter;
+		}
+	}
+	*FinalIter = 0;
+#ifdef MEX_LIB
+	mexPrintf(bufferFinal);
+	mexEvalString("drawnow();");
+#elif defined MEX_EXE
+	std::printf(bufferFinal);
+	std::fflush(stdout);
+#endif
+}
+
+inline void WriteOutput(const char *Format, ...) {
+	std::va_list Args;
+	va_start(Args, Format);
+	vWriteOutput(Format, Args);
+	va_end(Args);
+}
+
+template <typename ExType>
+inline void WriteException(ExType Exception, const char *Format, ...) {
+	std::va_list Args;
+	va_start(Args, Format);
+	vWriteOutput(Format, Args);
+	va_end(Args);
+
+	throw Exception;
+}
+
+inline void StringSplit(const char* InputString, const char* DelimString, std::vector<std::string> &SplitStringVect,
+                        bool includeBlanks = false){
+
+	std::string tempInputString(InputString);
+	SplitStringVect.resize(0);
+
+	do{
+		size_t DelimPos = tempInputString.find_first_of(DelimString);
+		std::string currentSubString;
+		if (DelimPos != std::string::npos){
+			currentSubString = tempInputString.substr(0, DelimPos);
+			tempInputString = tempInputString.substr(DelimPos + 1);
+		}
+		else{
+			currentSubString = tempInputString;
+			tempInputString = "";
+		}
+
+		if (includeBlanks || currentSubString != ""){
+			SplitStringVect.push_back(currentSubString);
+		}
+	} while (tempInputString.length() != 0);
+}
+
+//////////////////////////////////////////////////////////////////
 //////////////////////// OUTPUT FUNCTIONS ////////////////////////
 //////////////////////////////////////////////////////////////////
 
@@ -96,73 +167,6 @@ inline mxArrayPtr assignmxArray(MexVector<MexVector<T, Al>, AlSub> &VectorOut){
 		ReturnPointer = mxCreateCellMatrix_730(0, 0);
 	}
 	return ReturnPointer;
-}
-
-inline void vWriteOutput(const char *Format, std::va_list Args) {
-	char buffertemp[256], bufferFinal[256];
-	vsnprintf(buffertemp, 256, Format, Args);
-
-	char* tempIter = buffertemp;
-	char* FinalIter = bufferFinal;
-	for (; *tempIter != 0; ++tempIter, ++FinalIter) {
-		if (*tempIter == '%') {
-			*FinalIter = '%';
-			++FinalIter;
-			*FinalIter = '%';
-		}
-		else {
-			*FinalIter = *tempIter;
-		}
-	}
-	*FinalIter = 0;
-#ifdef MEX_LIB
-	mexPrintf(bufferFinal);
-	mexEvalString("drawnow();");
-#elif defined MEX_EXE
-	std::printf(bufferFinal);
-	std::fflush(stdout);
-#endif
-}
-
-inline void WriteOutput(const char *Format, ...) {
-	std::va_list Args;
-	va_start(Args, Format);
-	vWriteOutput(Format, Args);
-	va_end(Args);
-}
-
-template <typename ExType>
-inline void WriteException(ExType Exception, const char *Format, ...) {
-	std::va_list Args;
-	va_start(Args, Format);
-	vWriteOutput(Format, Args);
-	va_end(Args);
-
-	throw Exception;
-}
-
-inline void StringSplit(const char* InputString, const char* DelimString, std::vector<std::string> &SplitStringVect,
-	bool includeBlanks = false){
-	
-	std::string tempInputString(InputString);
-	SplitStringVect.resize(0);
-
-	do{
-		size_t DelimPos = tempInputString.find_first_of(DelimString);
-		std::string currentSubString;
-		if (DelimPos != std::string::npos){
-			currentSubString = tempInputString.substr(0, DelimPos);
-			tempInputString = tempInputString.substr(DelimPos + 1);
-		}
-		else{
-			currentSubString = tempInputString;
-			tempInputString = "";
-		}
-
-		if (includeBlanks || currentSubString != ""){
-			SplitStringVect.push_back(currentSubString);
-		}
-	} while (tempInputString.length() != 0);
 }
 
 struct MexMemInputOps{
