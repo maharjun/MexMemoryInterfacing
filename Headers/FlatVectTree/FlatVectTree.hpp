@@ -20,6 +20,9 @@ class FlatVectTree {
 	MexVector<MexVector<uint32_t, FVT_Al>, FVT_Al> PartitionIndex;
 	MexVector<T, FVT_Al> Data;
 
+	uint32_t getActualInsertDepth(uint32_t InsertDepth, uint32_t GivenDepth) const;
+	uint32_t getAppendInsertDepth(uint32_t GivenInsertDepth, uint32_t AppendTreeDepth) const;
+
 	template<class Al>
 	inline void getVectTreeFromInds(MexVector<T, Al> &VectTreeOut, uint32_t Level, uint32_t LevelIndex);
 	template<typename SubElemT, class AlSub, class Al>
@@ -58,19 +61,23 @@ public:
 
 	// Appending Functions
 	template<typename SubElemT, class Al>
-	inline void append(const MexVector<SubElemT, Al> &SubElemTree, int InsertDepth = -1);
+	inline void append(const MexVector<SubElemT, Al> &SubElemTree, uint32_t InsertDepth = uint32_t(-1));
+	template <class Al>
+	inline void append(const FlatVectTree<T, Al> &SubElemTree, uint32_t InsertDepth = uint32_t(-1));
 
 	// Move-Appending functions
 	template<typename SubElemT, class Al>
-	inline void append(MexVector<SubElemT, Al> &&SubElemTree, int InsertDepth = -1);
+	inline void append(MexVector<SubElemT, Al> &&SubElemTree, uint32_t InsertDepth = uint32_t(-1));
 
 	// Push-Back Functions
 	template<typename SubElemT, class Al>
-	inline void push_back(const MexVector<SubElemT, Al> &MexVectIn, int InsertDepth = -1);
+	inline void push_back(const MexVector<SubElemT, Al> &MexVectIn);
+	template <class Al>
+	void push_back(FlatVectTree<T, Al> &VectTreeIn);
 
 	// Move-Push-Back Functions
 	template<typename SubElemT, class Al>
-	inline void push_back(MexVector<SubElemT, Al> &&MexVectIn, int InsertDepth = -1);
+	inline void push_back(MexVector<SubElemT, Al> &&MexVectIn);
 
 	// Get Vector Tree
 	template<typename SubElemT, class Al, class AlInds>
@@ -82,16 +89,16 @@ public:
 	inline void releaseMem(MexVector<MexVector<uint32_t, FVT_Al>, FVT_Al> &ReleasedPartInds, MexVector<T, FVT_Al> &ReleasedData);
 
     // Property Access Functions
-    inline uint32_t depth()                        {
+    inline uint32_t depth() const                  {
         return PartitionIndex.size();
     }
 	inline uint32_t LevelSize(uint32_t LevelIndex) {
 		return PartitionIndex[LevelIndex].size() - 1;
 	}
-	inline bool     isempty()                      {
+	inline bool     isempty() const                {
 		return (this->depth() == 0 || PartitionIndex[0].size() == 1);
 	}
-	inline bool     istrulyempty()                 {
+	inline bool     istrulyempty() const           {
 		return (this->depth() == 0);
 	}
 	// Static Functions

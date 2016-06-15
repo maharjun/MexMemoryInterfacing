@@ -1,11 +1,89 @@
 #include <utility>
 #include "FlatVectTree.hpp"
 
-typedef int T;
+typedef uint32_t T;
 typedef std::enable_if< std::is_arithmetic<T>::value >::type B;
 
 /////////////////////////////////////////////////
-// ASIGNMENT FUNCTIONS       ////////////////////
+// PRIVATE HELPER FUNCTIONS  ////////////////////
+/////////////////////////////////////////////////
+
+template<typename T, class FVT_Al, class B>
+uint32_t FlatVectTree<T, FVT_Al, B>::getAppendInsertDepth(uint32_t GivenInsertDepth, uint32_t AppendTreeDepth) const {
+	// This function does the following:
+	//
+	// 1. Validates GivenInsertDepth in the context of AppendTreeDepth and CurrDepth.
+	// 2. Assigns the default value to GivenInsertDepth if it is uint32_t(-1)
+	//
+	// It returns the (Default or previously assigned) value of GivenInsertDepth
+	//
+	// This function calculates default values as  according to the append scheme of
+	// things.
+
+	uint32_t CurrDepth = this->depth();
+
+	// Initializing Default Values and validating GivenInsertDepth
+	if (GivenInsertDepth == -1) {
+		if (CurrDepth > 0)
+			if (AppendTreeDepth <= CurrDepth)
+				GivenInsertDepth = CurrDepth - AppendTreeDepth;
+			else
+				WriteException(
+					FV_ExCodes::FV_INVALID_APPEND,
+					"The Depth of array to be appended (%d) exceeds the current depth (%d) of the Non-Empty flat cell array",
+					AppendTreeDepth, CurrDepth
+				);
+		else
+			GivenInsertDepth = 0;
+	}
+	else {
+		if (GivenInsertDepth < 0)
+			WriteException(
+				FV_ExCodes::FV_INVALID_APPEND,
+				"GivenInsertDepth (%d) must be positive",
+				GivenInsertDepth
+			);
+		else if (CurrDepth > 0 && GivenInsertDepth + AppendTreeDepth > CurrDepth)
+			WriteException(
+				FV_ExCodes::FV_INVALID_APPEND,
+				"GivenInsertDepth (%d) must not exceed this->depth()-depth of given array (%d)",
+				GivenInsertDepth,
+				CurrDepth - AppendTreeDepth
+			);
+	}
+	return GivenInsertDepth;
+};
+
+template<typename T, class FVT_Al, class B>
+uint32_t FlatVectTree<T, FVT_Al, B>::getActualInsertDepth(uint32_t InsertDepth, uint32_t GivenDepth) const {
+
+	uint32_t CurrDepth = this->depth();
+
+	uint32_t ActualInsertDepth = 0;
+	if (CurrDepth == 0) {
+		// if FlatVectTree is empty.
+		ActualInsertDepth = 0;
+	}
+	else if (InsertDepth > 0) {
+		// find actual insert depth in case the given level doesn't exist
+		if (this->PartitionIndex[0].size() == 1) {
+			ActualInsertDepth = 0;
+		}
+		else {
+			for (ActualInsertDepth = 0; ActualInsertDepth < InsertDepth; ++ActualInsertDepth) {
+				size_t tempSize = PartitionIndex[ActualInsertDepth].size();
+				if (this->PartitionIndex[ActualInsertDepth][tempSize - 1] == this->PartitionIndex[ActualInsertDepth][tempSize - 2]) {
+					ActualInsertDepth++;
+					break;
+				}
+			}
+		}
+	}
+	return ActualInsertDepth;
+}
+
+/////////////////////////////////////////////////
+// ASSIGNMENT FUNCTIONS      ////////////////////
 /////////////////////////////////////////////////
 template<typename T, class FVT_Al, class B>
 template<class AlSub, class Al, class AlData>
@@ -17,9 +95,9 @@ inline void FlatVectTree<T, FVT_Al, B>::assign(const MexVector<MexVector<uint32_
 			Data = DataIn;
 		}
 		else {
-			int TreeDepth = PartitionIndexIn.size();
+			uint32_t TreeDepth = PartitionIndexIn.size();
 			PartitionIndex.resize(TreeDepth);
-			for (int i = 0; i < TreeDepth; ++i) {
+			for (uint32_t i = 0; i < TreeDepth; ++i) {
 				PartitionIndex[i].assign(PartitionIndexIn[i].size(), PartitionIndexIn[i].begin(), false);
 			}
 			Data.assign(DataIn.size(), DataIn.begin(), false);
@@ -43,9 +121,9 @@ inline void FlatVectTree<T, FVT_Al, B>::assign(const FlatVectTree<T, FVT_Al2> &F
 		Data = FlatVectTreeIn.Data;
 	}
 	else {
-		int TreeDepth = FlatVectTreeIn.PartitionIndex.size();
+		uint32_t TreeDepth = FlatVectTreeIn.PartitionIndex.size();
 		PartitionIndex.resize(TreeDepth);
-		for (int i = 0; i < TreeDepth; ++i) {
+		for (uint32_t i = 0; i < TreeDepth; ++i) {
 			PartitionIndex[i].assign(FlatVectTreeIn.PartitionIndex[i].size(), FlatVectTreeIn.PartitionIndex[i].begin(), false);
 		}
 		Data.assign(FlatVectTreeIn.Data.size(), FlatVectTreeIn.Data.begin(), false);
@@ -90,8 +168,8 @@ inline void FlatVectTree<T, FVT_Al, B>::appendFast(const MexVector<MexVector<Sub
 	uint32_t InsertDepth = this->depth() - getTreeInfo<decltype(VectTreeIn)>::depth;
 	uint32_t NElems      = VectTreeIn.size();
 	
-	for (int i = 0; i < NElems; ++i) {
-		int NSubElems = VectTreeIn[i].size();
+	for (uint32_t i = 0; i < NElems; ++i) {
+		uint32_t NSubElems = VectTreeIn[i].size();
 		appendFast(VectTreeIn[i]);
 		PartitionIndex[InsertDepth].push_back(PartitionIndex[InsertDepth].last() + NSubElems);
 	}
@@ -128,8 +206,8 @@ inline void FlatVectTree<T, FVT_Al, B>::appendFast(MexVector<MexVector<SubElemT,
 	uint32_t InsertDepth = this->depth() - getTreeInfo<decltype(VectTreeIn)>::depth;
 	uint32_t NElems = VectTreeIn.size();
 
-	for (int i = 0; i < NElems; ++i) {
-		int NSubElems = VectTreeIn[i].size();
+	for (uint32_t i = 0; i < NElems; ++i) {
+		uint32_t NSubElems = VectTreeIn[i].size();
 		appendFast(VectTreeIn[i]);
 		PartitionIndex[InsertDepth].push_back(PartitionIndex[InsertDepth].last() + NSubElems);
 	}
@@ -143,7 +221,7 @@ inline void FlatVectTree<T, FVT_Al, B>::appendFast(MexVector<MexVector<SubElemT,
 // =======================
 template<typename T, class FVT_Al, class B>
 template<typename SubElemT, class Al>
-inline void FlatVectTree<T, FVT_Al, B>::append(const MexVector<SubElemT, Al> &VectTreeIn, int InsertDepth) {
+inline void FlatVectTree<T, FVT_Al, B>::append(const MexVector<SubElemT, Al> &VectTreeIn, uint32_t InsertDepth) {
 	/* 
 	   This function appends the given MexVectIn at the specified InsertDepth
 	   
@@ -216,64 +294,17 @@ inline void FlatVectTree<T, FVT_Al, B>::append(const MexVector<SubElemT, Al> &Ve
 	*/
 
 	// Intializing Depth Variables
-	int CurrDepth = this->depth();
-	int GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
+	uint32_t CurrDepth = this->depth();
+	uint32_t GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
 
-	// Initializing Default Values and validating InsertDepth
-	if (InsertDepth == -1) {
-		if (CurrDepth > 0)
-			if (GivenDepth <= CurrDepth)
-				InsertDepth = CurrDepth - GivenDepth;
-			else
-				WriteException(
-					FV_ExCodes::FV_INVALID_APPEND, 
-					"The Depth of array to be appended (%d) exceeds the current depth (%d) of the Non-Empty flat cell array", 
-					GivenDepth, CurrDepth
-				);
-		else
-			InsertDepth = 0;
-	}
-	else {
-		if (InsertDepth < 0)
-			WriteException(
-				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must be positive",
-				InsertDepth
-			);
-		else if (CurrDepth > 0 && InsertDepth + GivenDepth > CurrDepth)
-			WriteException(
-				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must not exceed this->depth()-depth of given array (%d)",
-				InsertDepth,
-				CurrDepth - GivenDepth
-			);
+	InsertDepth = getAppendInsertDepth(InsertDepth, GivenDepth);
+	uint32_t ActualInsertDepth = getActualInsertDepth(InsertDepth, GivenDepth);
+
+	// Initialize FVT if empty
+	if (this->istrulyempty()) {
+		this->setDepth(InsertDepth + GivenDepth);
 	}
 
-	// Taking Steps if FlatVectTree is empty.
-	int ActualInsertDepth = 0;
-	if (CurrDepth == 0) {
-		CurrDepth = InsertDepth + GivenDepth;
-		*this = FlatVectTree(CurrDepth);
-		
-		ActualInsertDepth = 0;
-	}
-	else if (InsertDepth > 0) {
-		// find actual insert depth in case the given level desnt exist
-		if (this->PartitionIndex[0].size() == 1) {
-			ActualInsertDepth = 0;
-		}
-		else {
-			for (ActualInsertDepth = 0; ActualInsertDepth < InsertDepth; ++ActualInsertDepth) {
-				int tempSize = PartitionIndex[ActualInsertDepth].size();
-				if (this->PartitionIndex[ActualInsertDepth][tempSize - 1] == this->PartitionIndex[ActualInsertDepth][tempSize - 2]){
-					ActualInsertDepth++;
-					break;
-				}
-			}
-		}
-		
-	}
-	
 	// Perform Fast Append
 	appendFast(VectTreeIn);
 
@@ -286,7 +317,7 @@ inline void FlatVectTree<T, FVT_Al, B>::append(const MexVector<SubElemT, Al> &Ve
 		else
 			PartitionIndex[CurrDepth - GivenDepth - 1].push_back(PartitionIndex[CurrDepth - GivenDepth].size() - 1);
 		
-		for (int i = CurrDepth - GivenDepth - 2; i >= ActualInsertDepth; --i) {
+		for (uint32_t i = CurrDepth - GivenDepth - 1; i --> ActualInsertDepth ;) {
 			PartitionIndex[i].push_back(PartitionIndex[i + 1].size() - 1); // Discounting BTE Element
 		}
 	}
@@ -302,7 +333,7 @@ inline void FlatVectTree<T, FVT_Al, B>::append(const MexVector<SubElemT, Al> &Ve
 
 template<typename T, class FVT_Al, class B>
 template<typename SubElemT, class Al>
-inline void FlatVectTree<T, FVT_Al, B>::append(MexVector<SubElemT, Al> &&VectTreeIn, int InsertDepth) {
+inline void FlatVectTree<T, FVT_Al, B>::append(MexVector<SubElemT, Al> &&VectTreeIn, uint32_t InsertDepth) {
 	/* 
 	   This function appends the given MexVectIn at the specified InsertDepth
 	   
@@ -375,81 +406,34 @@ inline void FlatVectTree<T, FVT_Al, B>::append(MexVector<SubElemT, Al> &&VectTre
 	*/
 
 	// Intializing Depth Variables
-	int CurrDepth = this->depth();
-	int GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
+	uint32_t CurrDepth = this->depth();
+	uint32_t GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
 
-	// Initializing Default Values and validating InsertDepth
-	if (InsertDepth == -1) {
-		if (CurrDepth > 0)
-			if (GivenDepth <= CurrDepth)
-				InsertDepth = CurrDepth - GivenDepth;
-			else
-				WriteException(
-					FV_ExCodes::FV_INVALID_APPEND, 
-					"The Depth of array to be appended (%d) exceeds the current depth (%d) of the Non-Empty flat cell array", 
-					GivenDepth, CurrDepth
-				);
-		else
-			InsertDepth = 0;
-	}
-	else {
-		if (InsertDepth < 0)
-			WriteException(
-				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must be positive",
-				InsertDepth
-			);
-		else if (CurrDepth > 0 && InsertDepth + GivenDepth > CurrDepth)
-			WriteException(
-				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must not exceed this->depth()-depth of given array (%d)",
-				InsertDepth,
-				CurrDepth - GivenDepth
-			);
-	}
+	InsertDepth = getAppendInsertDepth(InsertDepth, GivenDepth);
+	uint32_t ActualInsertDepth = getActualInsertDepth(InsertDepth, GivenDepth);
 
-	// Taking Steps if FlatVectTree is empty.
-	int ActualInsertDepth = 0;
-	if (CurrDepth == 0) {
-		CurrDepth = InsertDepth + GivenDepth;
-		*this = FlatVectTree(CurrDepth);
-		
-		ActualInsertDepth = 0;
-	}
-	else if (InsertDepth > 0) {
-		// find actual insert depth in case the given level desnt exist
-		if (this->PartitionIndex[0].size() == 1) {
-			ActualInsertDepth = 0;
-		}
-		else {
-			for (ActualInsertDepth = 0; ActualInsertDepth < InsertDepth; ++ActualInsertDepth) {
-				int tempSize = PartitionIndex[ActualInsertDepth].size();
-				if (this->PartitionIndex[ActualInsertDepth][tempSize - 1] == this->PartitionIndex[ActualInsertDepth][tempSize - 2]){
-					ActualInsertDepth++;
-					break;
-				}
-			}
-		}
-		
+	// Initialize FVT if empty
+	if (this->istrulyempty()) {
+		this->setDepth(InsertDepth + GivenDepth);
 	}
 
 	// Perform Fast Append
 	appendFast(std::move(VectTreeIn));
 
 	// If The vector is inserted on a Level higher than CurrDepth - GivenDepth
-	// then an additional entry needs to be made for all the levels from the 
+	// then an additional entry needs to be made for all the levels from the
 	// CurrDepth - GivenDepth - 1 to the ActualInsertDepth.
 	if (ActualInsertDepth < CurrDepth - GivenDepth) {
 		if (GivenDepth == 0)
 			PartitionIndex[CurrDepth - 1].push_back(Data.size());
-		else 
+		else
 			PartitionIndex[CurrDepth - GivenDepth - 1].push_back(PartitionIndex[CurrDepth - GivenDepth].size() - 1);
 
-		for (int i = CurrDepth - GivenDepth - 2; i >= ActualInsertDepth; --i) {
+		for (uint32_t i = CurrDepth - GivenDepth - 1; i --> ActualInsertDepth ;) {
 			PartitionIndex[i].push_back(PartitionIndex[i + 1].size() - 1); // Discounting BTE Element
 		}
 	}
-	
+
 	// The Beyond-The_End element for the level above the insert 
 	// level needs to be updated (assuming Such a level exists)
 	if (ActualInsertDepth > 0 && ActualInsertDepth != CurrDepth)
@@ -459,9 +443,62 @@ inline void FlatVectTree<T, FVT_Al, B>::append(MexVector<SubElemT, Al> &&VectTre
 	}
 }
 
-typedef int T;
-typedef MexVector<int> SubElemT;
-typedef std::enable_if< std::is_arithmetic<T>::value >::type B;
+template<typename T, class FVT_Al, class B>
+template<class Al>
+inline void FlatVectTree<T, FVT_Al, B>::append(const FlatVectTree<T, Al> &VectTreeIn, uint32_t InsertDepth) {
+	/*
+	 * This function is used to append a FlatVectTree instead of a VectVect.
+	 * The semantics of this operation are identical to the other append functions
+	 */
+
+	// Initializing Depth Variables
+	uint32_t CurrDepth = this->depth();
+	uint32_t GivenDepth = VectTreeIn.depth();
+
+	InsertDepth = getAppendInsertDepth(InsertDepth, GivenDepth);
+	uint32_t ActualInsertDepth = getActualInsertDepth(InsertDepth, GivenDepth);
+
+	// Initialize FVT if empty
+	if (this->istrulyempty()) {
+		this->setDepth(InsertDepth + GivenDepth);
+		CurrDepth = InsertDepth + GivenDepth;
+	}
+
+	// Perform Fast Append
+	for(uint32_t i=0; i<GivenDepth; ++i) {
+		auto &CurrentFVTPartition = PartitionIndex[CurrDepth - GivenDepth + i];
+		auto &AppendFVTPartition = VectTreeIn.PartitionIndex[i];
+		auto CurrPartitionLastIndex = PartitionIndex[CurrDepth - GivenDepth + i].last();
+		// Ignore the first element of AppendFVTPartition as hat corresponds to
+		// the BLE of CurrentFVTPartition
+		for(uint32_t j=1; j < AppendFVTPartition.size(); ++j) {
+			CurrentFVTPartition.push_back(CurrPartitionLastIndex + AppendFVTPartition[j]);
+		}
+	}
+	Data.insert(Data.size(), VectTreeIn.Data);
+
+	// If The vector is inserted on a Level higher than CurrDepth - GivenDepth
+	// then an additional entry needs to be made for all the levels from the
+	// CurrDepth - GivenDepth - 1 to the ActualInsertDepth.
+	if (ActualInsertDepth < CurrDepth - GivenDepth) {
+		if (GivenDepth == 0)
+			PartitionIndex[CurrDepth - 1].push_back(Data.size());
+		else
+			PartitionIndex[CurrDepth - GivenDepth - 1].push_back(PartitionIndex[CurrDepth - GivenDepth].size() - 1);
+
+		for (uint32_t i = CurrDepth - GivenDepth - 1; i --> ActualInsertDepth ;) {
+			PartitionIndex[i].push_back(PartitionIndex[i + 1].size() - 1); // Discounting BTE Element
+		}
+	}
+
+	// The Beyond-The_End element for the level above the insert
+	// level needs to be updated (assuming Such a level exists)
+	if (ActualInsertDepth > 0 && ActualInsertDepth != CurrDepth)
+		PartitionIndex[ActualInsertDepth - 1].last() = PartitionIndex[ActualInsertDepth].size() - 1;
+	else if (ActualInsertDepth > 0 && ActualInsertDepth == CurrDepth) {
+		PartitionIndex[ActualInsertDepth - 1].last() = Data.size();
+	}
+}
 
 /////////////////////////////////////////////////
 // PUSH_BACK FUNCTIONS       ////////////////////
@@ -469,113 +506,103 @@ typedef std::enable_if< std::is_arithmetic<T>::value >::type B;
 
 template<typename T, class FVT_Al, class B>
 template<typename SubElemT, class Al>
-inline void FlatVectTree<T, FVT_Al, B>::push_back(const MexVector<SubElemT, Al> &VectTreeIn, int InsertDepth) {
+inline void FlatVectTree<T, FVT_Al, B>::push_back(const MexVector<SubElemT, Al> &VectTreeIn) {
 	/*
 	   push_back is like append except that the default calculated InsertDepth is one higher
-	   higher than append. The constraint for InsertDepth is also modifed accordingly to below.
+	   than append. The InsertDepth is not taken as argument as it is expected that the user
+	   use append in such case.
 
-	   1. The the case that the current FlatTreeVect is non-empty (i.e. PartitionIndex.size() > 0)
-	      The following constraint is required to be followed else an exception is thrown.
-	      
-	      InsertDepth + 1 + getTreeInfo<MexVector<MexVector<T> > >::value < this->depth();
-
-	   2. If InsertDepth is Not Specified, and FlatTreeVect is Non-empty, it is calculated according
-	      to the constraint
+	   2. If FlatTreeVect is Non-empty, it is calculated according to the constraint
 	   
-	      InsertDepth + 1 + getTreeInfo<MexVector<MexVector<T> > >::value  = this->depth();
+	      InsertDepth + 1 + depth_of_VectTreeIn = this->depth();
 	   
-	      If getTreeInfo<MexVector<MexVector<T> > >::value > this->depth() - 1, then an exception is 
-	      thrown.
+	      If depth_of_VectTreeIn > this->depth() - 1, then an exception is thrown.
 	   
-	   3. If InsertDepth is not specified, and FlatTreeVect is Empty, then InsertDepth defaults to 0
+	   3. FlatTreeVect is Empty, then InsertDepth defaults to 1
 	   
 	   4. If FlatTreeVect is Empty, its new depth is calculated to be 
 	   
-	      InsertDepth + getTreeInfo<MexVector<MexVector<T> > >::value >
+	      1 + depth_of_VectTreeIn
 
 	   Intuitively, push_back packages the given MexVector<MexVector<T> > into an element of a higher
 	   depth Vector Tree and then pushes that element into the appropriate level.
 	*/
 
 	// Intializing Depth Variables
-	int CurrDepth = this->depth();
-	int GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
+	uint32_t CurrDepth = this->depth();
+	uint32_t GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
+	uint32_t InsertDepth = 0;
 
 	// Initializing Default Values and validating InsertDepth
-	if (InsertDepth == -1) {
-		if (CurrDepth > 0)
-			if (GivenDepth <= CurrDepth - 1)
-				InsertDepth = CurrDepth - GivenDepth - 1;
-			else
-				WriteException(
-					FV_ExCodes::FV_INVALID_APPEND,
-					"The Depth of array to be pushed back (%d) exceeds the (1 + current depth) (%d) of the Non-Empty flat cell array",
-					GivenDepth, 1 + CurrDepth
-					);
+	if (CurrDepth > 0)
+		if (GivenDepth <= CurrDepth - 1)
+			InsertDepth = CurrDepth - GivenDepth - 1;
 		else
-			InsertDepth = 0;
-	}
-	else {
-		if (InsertDepth < 0)
 			WriteException(
 				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must be positive",
-				InsertDepth
+				"The Depth of array to be pushed back (%d) exceeds the (1 + current depth) (%d) of the Non-Empty flat cell array",
+				GivenDepth, 1 + CurrDepth
 				);
-		else if (CurrDepth > 0 && InsertDepth + GivenDepth + 1 > CurrDepth)
-			WriteException(
-				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must not exceed this->depth()-(depth of given array + 1) = %d",
-				InsertDepth,
-				CurrDepth - GivenDepth - 1
-				);
-	}
+	else
+		InsertDepth = 1;
 
 	append(VectTreeIn, InsertDepth);
 }
 
 template<typename T, class FVT_Al, class B>
 template<typename SubElemT, class Al>
-inline void FlatVectTree<T, FVT_Al, B>::push_back(MexVector<SubElemT, Al> &&VectTreeIn, int InsertDepth) {
+inline void FlatVectTree<T, FVT_Al, B>::push_back(MexVector<SubElemT, Al> &&VectTreeIn) {
 	/* 
 	   This performs push_back and deallocates memory in VectTreeIn
 	*/
 
-	// Intializing Depth Variables
-	int CurrDepth = this->depth();
-	int GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
+	// Initializing Depth Variables
+	uint32_t CurrDepth = this->depth();
+	uint32_t GivenDepth = getTreeInfo<decltype(VectTreeIn)>::depth;
+	uint32_t InsertDepth = 0;
 
 	// Initializing Default Values and validating InsertDepth
-	if (InsertDepth == -1) {
-		if (CurrDepth > 0)
-			if (GivenDepth <= CurrDepth - 1)
-				InsertDepth = CurrDepth - GivenDepth - 1;
-			else
-				WriteException(
-					FV_ExCodes::FV_INVALID_APPEND,
-					"The Depth of array to be pushed back (%d) exceeds the (1 + current depth) (%d) of the Non-Empty flat cell array",
-					GivenDepth, 1 + CurrDepth
-					);
-		else
-			InsertDepth = 0;
-	}
-	else {
-		if (InsertDepth < 0)
-			WriteException(
-				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must be positive",
-				InsertDepth
-				);
-		else if (CurrDepth > 0 && InsertDepth + GivenDepth + 1 > CurrDepth)
-			WriteException(
-				FV_ExCodes::FV_INVALID_APPEND,
-				"InsertDepth (%d) must not exceed this->depth()-(depth of given array + 1) = %d",
-				InsertDepth,
-				CurrDepth - GivenDepth - 1
-				);
-	}
+	if (CurrDepth > 0)
+	if (GivenDepth <= CurrDepth - 1)
+		InsertDepth = CurrDepth - GivenDepth - 1;
+	else
+		WriteException(
+			FV_ExCodes::FV_INVALID_APPEND,
+			"The Depth of array to be pushed back (%d) exceeds the (1 + current depth) (%d) of the Non-Empty flat cell array",
+			GivenDepth, 1 + CurrDepth
+		);
+	else
+		InsertDepth = 1;
 
 	append(std::move(VectTreeIn), InsertDepth);
+}
+
+template<typename T, class FVT_Al, class B>
+template<class Al>
+inline void FlatVectTree<T, FVT_Al, B>::push_back(FlatVectTree<T, Al> &VectTreeIn) {
+	/*
+	   This performs push_back and deallocates memory in VectTreeIn
+	*/
+
+	// Initializing Depth Variables
+	uint32_t CurrDepth = this->depth();
+	uint32_t GivenDepth = VectTreeIn.depth();
+	uint32_t InsertDepth = 0;
+
+	// Initializing Default Values and validating InsertDepth
+	if (CurrDepth > 0)
+	if (GivenDepth <= CurrDepth - 1)
+		InsertDepth = CurrDepth - GivenDepth - 1;
+	else
+		WriteException(
+			FV_ExCodes::FV_INVALID_APPEND,
+			"The Depth of array to be pushed back (%d) exceeds the (1 + current depth) (%d) of the Non-Empty flat cell array",
+			GivenDepth, 1 + CurrDepth
+		);
+	else
+		InsertDepth = 1;
+
+	append(VectTreeIn, InsertDepth);
 }
 
 /////////////////////////////////////////////////
@@ -639,7 +666,7 @@ inline void FlatVectTree<T, FVT_Al, B>::getVectTreeFromInds(MexVector<MexVector<
 	uint32_t NElems = PartitionIndex[Level][LevelIndex + 1] - PartitionIndex[Level][LevelIndex];
 	VectTreeOut.resize(NElems);
 
-	for (int i = 0; i < NElems; ++i) {
+	for (uint32_t i = 0; i < NElems; ++i) {
 		uint32_t CurrElemIndex = PartitionIndex[Level][LevelIndex] + i;
 		getVectTreeFromInds(VectTreeOut[i], Level + 1, CurrElemIndex);
 	}
@@ -677,7 +704,7 @@ inline void FlatVectTree<T, FVT_Al, B>::getVectTree(MexVector<SubElemT, Al> &Vec
 		else {
 			uint32_t NElems = PartitionIndex[0].size() - 1;
 			VectTreeOut.resize(NElems);
-			for (int i = 0; i < NElems; ++i) {
+			for (uint32_t i = 0; i < NElems; ++i) {
 				getVectTreeFromInds(VectTreeOut[i], 0, i);
 			}
 		}
@@ -687,7 +714,7 @@ inline void FlatVectTree<T, FVT_Al, B>::getVectTree(MexVector<SubElemT, Al> &Vec
 		uint32_t Level = 0;
 		uint32_t LevelIndex = 0;
 
-		for (int i = 0; i < IndicesSize; ++i, ++Level) {
+		for (uint32_t i = 0; i < IndicesSize; ++i, ++Level) {
 			uint32_t CurrentLevelSize = PartitionIndex[Level].size() - 1;
 			if (Indices[Level] < CurrentLevelSize) {
 				LevelIndex = PartitionIndex[Level][LevelIndex + Indices[Level]];
@@ -713,7 +740,7 @@ inline void FlatVectTree<T, FVT_Al, B>::getVectTree(MexVector<SubElemT, Al> &Vec
 	MexVector<uint32_t> Indices(NIndices);
 	std::va_list Args;
 	va_start(Args, NIndices);
-	for (int i = 0; i < NIndices; ++i) {
+	for (uint32_t i = 0; i < NIndices; ++i) {
 		Indices[i] = va_arg(Args, uint32_t);
 	}
 	va_end(Args);
@@ -767,13 +794,13 @@ inline bool FlatVectTree<T, FVT_Al, B>::setDepth(uint32_t NewDepth)
 		MexVector<MexVector<uint32_t> > NewPartitionIndex(NewDepth, MexVector<uint32_t>(1, (uint32_t)0));
 
 		if (!this->isempty()) {
-			for (int i = 0; i < NewDepth - OldDepth - 1; ++i) {
+			for (uint32_t i = 0; i < NewDepth - OldDepth - 1; ++i) {
 				NewPartitionIndex[i].push_back(1);
 			}
 			NewPartitionIndex[NewDepth - OldDepth - 1].push_back(PartitionIndex[0].size() - 1);
 		}
 		
-		for (int i = NewDepth - OldDepth; i < NewDepth; ++i) {
+		for (uint32_t i = NewDepth - OldDepth; i < NewDepth; ++i) {
 			NewPartitionIndex[i].swap(PartitionIndex[i - (NewDepth - OldDepth)]);
 		}
 
@@ -793,7 +820,7 @@ inline bool FlatVectTree<T, FVT_Al, B>::setDepth(uint32_t NewDepth)
 		}
 		else {
 			bool isValid = true;
-			for (int i = 0; i < OldDepth - NewDepth; ++i)
+			for (uint32_t i = 0; i < OldDepth - NewDepth; ++i)
 				if (PartitionIndex[i].size() > 2) {
 					isValid = false;
 					break;
@@ -801,7 +828,7 @@ inline bool FlatVectTree<T, FVT_Al, B>::setDepth(uint32_t NewDepth)
 
 			if (isValid) {
 				MexVector<MexVector<uint32_t> > NewPartitionIndex(NewDepth);
-				for (int i = 0; i < NewDepth; ++i)
+				for (uint32_t i = 0; i < NewDepth; ++i)
 					NewPartitionIndex[i].swap(PartitionIndex[i + OldDepth - NewDepth]);
 				PartitionIndex.swap(NewPartitionIndex);
 				return true;
@@ -820,7 +847,7 @@ template<typename T, class FVT_Al, class B>
 inline void FlatVectTree<T, FVT_Al, B>::clear()
 {
 	uint32_t CurrDepth = this->depth();
-	for (int i = 0; i < CurrDepth; ++i) {
+	for (uint32_t i = 0; i < CurrDepth; ++i) {
 		PartitionIndex[i].resize(1);
 		PartitionIndex[i][0] = 0;
 	}
@@ -847,7 +874,7 @@ inline void FlatVectTree<T, FVT_Al, B>::releaseMem(MexVector<MexVector<uint32_t,
 
 	// Relinquishing PartitionIndex and Data arrays 
 	ReleasedPartInds.resize(TreeDepth);
-	for (int i = 0; i < TreeDepth; ++i) {
+	for (uint32_t i = 0; i < TreeDepth; ++i) {
 		uint32_t NElemsinCurrLevel = PartitionIndex[i].size();
 		ReleasedPartInds[i].assign(NElemsinCurrLevel, PartitionIndex[i].releaseArray());
 	}
@@ -855,7 +882,7 @@ inline void FlatVectTree<T, FVT_Al, B>::releaseMem(MexVector<MexVector<uint32_t,
 	ReleasedData.assign(NElemsData, Data.releaseArray());
 
 	// Reinitializing PartitionInds and Data
-	for (int i = 0; i < TreeDepth; ++i) {
+	for (uint32_t i = 0; i < TreeDepth; ++i) {
 		PartitionIndex[i].resize(1, 0);
 	}
 	// Data is already an empty (null) vector
@@ -876,7 +903,7 @@ inline bool FlatVectTree<T, FVT_Al, B>::isValidFVT(const MexVector<MexVector<uin
 	if (PartitionInds.size() > 0) {
 
 		// Checking if sizes > 0
-		for (int i = 0; i < NLevels && isValid; ++i) {
+		for (uint32_t i = 0; i < NLevels && isValid; ++i) {
 			size_t NElemsatCurrLevel = PartitionInds[i].size();
 			if (PartitionInds[i].size() == 0) {
 				isValid = false;
@@ -886,9 +913,9 @@ inline bool FlatVectTree<T, FVT_Al, B>::isValidFVT(const MexVector<MexVector<uin
 
 		// Checking sorted
 		if(isValid)
-		for (int i = 0; i < NLevels && isValid; ++i) {
+		for (uint32_t i = 0; i < NLevels && isValid; ++i) {
 			size_t NElemsatCurrLevel = PartitionInds[i].size();
-			for (int j = 0; j < NElemsatCurrLevel - 1; ++j) {
+			for (uint32_t j = 0; j < NElemsatCurrLevel - 1; ++j) {
 				if (PartitionInds[i][j] > PartitionInds[i][j + 1]) {
 					isValid = false;
 					break;
@@ -898,7 +925,7 @@ inline bool FlatVectTree<T, FVT_Al, B>::isValidFVT(const MexVector<MexVector<uin
 
 		// Chacking validity of first elements (must be 0)
 		if (isValid)
-		for (int i = 0; i < NLevels && isValid; ++i) {
+		for (uint32_t i = 0; i < NLevels && isValid; ++i) {
 			if (PartitionInds[i][0] != 0) {
 				isValid = false;
 				break;
@@ -907,7 +934,7 @@ inline bool FlatVectTree<T, FVT_Al, B>::isValidFVT(const MexVector<MexVector<uin
 
 		// Checking validity of BTE Elems
 		if (isValid)
-		for (int i = 0; i < NLevels - 1 && isValid; ++i) {
+		for (uint32_t i = 0; i < NLevels - 1 && isValid; ++i) {
 			if (PartitionInds[i].last() != PartitionInds[i + 1].size() - 1) {
 				isValid = false;
 				break;
