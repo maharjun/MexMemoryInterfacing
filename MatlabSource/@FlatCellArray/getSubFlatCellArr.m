@@ -11,7 +11,7 @@ function FlatCellArrOut = getSubFlatCellArr(FlatCellArrIn, Level, Indices )
 	if Level == FlatCellArrIn.Depth + 1
 		FlatCellArrOut = FlatCellArrIn.Data(Indices);
 	else
-		PartitionIndexOut = cell(FlatCellArrIn.Depth - Level + 1);
+		PartitionIndexOut = cell(FlatCellArrIn.Depth - Level + 1, 1);
 		CurrLevelIndices = Indices;
 		for i = 1:length(PartitionIndexOut)
 			% Calculating current level entries by performing cumsum over
