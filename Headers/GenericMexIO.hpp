@@ -192,12 +192,14 @@ inline mxArrayPtr assignmxArray(MexVector<MexVector<T, Al>, AlSub> &VectorOut){
 
 struct MexMemInputOps{
 	bool IS_REQUIRED;
+	bool IS_NONEMPTY;
 	bool NO_EXCEPT;
 	bool QUIET;
 	int  REQUIRED_SIZE;
 
 	MexMemInputOps(){
 		IS_REQUIRED = false;
+		IS_NONEMPTY = false;
 		NO_EXCEPT = false;
 		QUIET = false;
 		REQUIRED_SIZE = -1;
@@ -205,11 +207,13 @@ struct MexMemInputOps{
 
 	MexMemInputOps(
 		bool IS_REQUIRED_,
+		bool IS_NONEMPTY_ = false,
 		int  REQUIRED_SIZE_ = -1,
 		bool NO_EXCEPT_ = false,
 		bool QUIET_ = false
 		){
 		IS_REQUIRED = IS_REQUIRED_;
+		IS_NONEMPTY = IS_NONEMPTY_;
 		NO_EXCEPT = NO_EXCEPT_;
 		QUIET = QUIET_;
 		REQUIRED_SIZE = REQUIRED_SIZE_;
@@ -226,6 +230,9 @@ inline MexMemInputOps getInputOps_v(int nOptions, va_list Options) {
 		char *CurrOption = va_arg(Options, char*);
 		if (!STRCMPI_FUNC("IS_REQUIRED", CurrOption)) {
 			InputOps.IS_REQUIRED = true;
+		}
+		else if (!STRCMPI_FUNC("IS_NONEMPTY", CurrOption)) {
+			InputOps.IS_NONEMPTY = true;
 		}
 		else if (!STRCMPI_FUNC("QUIET", CurrOption)) {
 			InputOps.QUIET = true;
@@ -297,6 +304,13 @@ static const mxArray* getValidStructField(const mxArray* InputStruct, const char
 		if (InputOps.REQUIRED_SIZE != -1 && NumElems > 0 && InputOps.REQUIRED_SIZE != NumElems) {
 			if (!InputOps.QUIET)
 				WriteOutput("The size of %s is required to be %d, it is currenty %d\n", FieldName, InputOps.REQUIRED_SIZE, NumElems);
+			if (!InputOps.NO_EXCEPT)
+				throw ExOps::EXCEPTION_INVALID_INPUT;
+			return nullptr;
+		}
+		else if(NumElems == 0 && InputOps.IS_NONEMPTY) {
+			if (!InputOps.QUIET)
+				WriteOutput("The field %s is required to be non-empty\n", FieldName);
 			if (!InputOps.NO_EXCEPT)
 				throw ExOps::EXCEPTION_INVALID_INPUT;
 			return nullptr;
