@@ -571,6 +571,20 @@ inline void getInputfrommxArray(
 	}
 }
 
+template <typename TypeSrcDest>
+inline void getROInputfrommxArray(
+	const mxArray* InputArray,
+	MexMatrix<TypeSrcDest, mxAllocator> &MatrixIn) {
+
+	if (InputArray != nullptr && !mxIsEmpty(InputArray)) {
+		size_t NDim0 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 0);
+		size_t NDim1 = FieldInfo<decltype(MatrixIn)>::getSize(InputArray, 1);
+
+		TypeSrcDest* tempArrayPtr = reinterpret_cast<TypeSrcDest*>(mxGetData(InputArray));
+		MatrixIn.assign(NDim1, NDim0, tempArrayPtr, false);
+	}
+}
+
 template <typename TypeSrc, typename TypeDest, class AlDest>
 inline void getInputfrommxArray(
 	const mxArray* InputArray,
@@ -623,6 +637,23 @@ inline int getInputfromStruct(
 	const mxArray* StructFieldPtr = getValidStructField<MexMatrix<TypeSrc> >(InputStruct, FieldName, InputOps);
 	if (StructFieldPtr != nullptr) {
 		getInputfrommxArray<TypeSrc, TypeDest>(StructFieldPtr, MatrixIn);
+		return 0;
+	}
+	else {
+		return 1;
+	}
+}
+
+template <typename TypeSrcDest>
+inline int getROInputfromStruct(
+	const mxArray* InputStruct, const char* FieldName,
+	MexMatrix<TypeSrcDest, mxAllocator> &MatrixIn,
+	MexMemInputOps InputOps = MexMemInputOps()) {
+
+	// Processing Data
+	const mxArray* StructFieldPtr = getValidStructField<MexMatrix<TypeSrcDest> >(InputStruct, FieldName, InputOps);
+	if (StructFieldPtr != nullptr) {
+		getInputfrommxArray<TypeSrcDest>(StructFieldPtr, MatrixIn);
 		return 0;
 	}
 	else {
