@@ -169,6 +169,7 @@ classdef FlatCellArray < hgsetget
 		CellArray = Convert2CellArray(obj)
 		Pushback(obj, obj2Push, DepthStartInd);
 		function obj = copy(this)
+			obj = FlatCellArray();
 			obj.PartitionIndex = this.PartitionIndex;
 			obj.Data           = this.Data;
 		end
