@@ -37,7 +37,7 @@ if Depth <= FlatCellArr.Depth
    EndIndexVect = FlatCellArr.PartitionIndex{Depth}(FiltIndexVect+1);
    SubLevelInds = cell(length(BegIndexVect), 1);
    for i = 1:length(BegIndexVect)
-       SubLevelInds{i} = transpose(BegIndexVect+1:EndIndexVect);
+       SubLevelInds{i} = transpose(BegIndexVect(i)+1:EndIndexVect(i));
    end
    SubLevelInds = cell2mat(SubLevelInds);
    
@@ -60,11 +60,15 @@ if Depth > 1
    FiltCorrParentPartIndex = CorrParentPartIndex(FiltIndexVect);
    
    % count the number of elements corresponding to each parent
-   ChildrenCount = accumarray(FiltCorrParentPartIndex, ...
-                              ones(length(FiltIndexVect),1), ...
-                              [length(FlatCellArr.PartitionIndex{Depth-1})-1, 1]);
+   if ~isempty(FiltIndexVect)
+       ChildrenCount = accumarray(FiltCorrParentPartIndex, ...
+                                  ones(length(FiltIndexVect),1), ...
+                                  [length(FlatCellArr.PartitionIndex{Depth-1})-1, 1]);
+   else
+       ChildrenCount = zeros(length(FlatCellArr.PartitionIndex{Depth-1})-1, 1);
+   end
    % calculate new parent vector y cumsumming no. of children
-   FlatCellArr.PartitionIndex{Depth-1} = [0; cumsum(ChildrenCount)];
+   FlatCellArr.PartitionIndex{Depth-1} = uint32([0; cumsum(ChildrenCount)]);
 end
 
 % Filter relevant vector
