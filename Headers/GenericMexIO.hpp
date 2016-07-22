@@ -18,8 +18,12 @@
 
 #ifdef _MSC_VER
 #  define STRCMPI_FUNC _strcmpi
-#elif defined __GNUC__
+#elif defined __GNUC__ && ! (defined __clang__)
 #  if (__GNUC__ > 5) || (__GNUC__ == 5)
+#    define STRCMPI_FUNC strcasecmp
+#  endif
+#elif defined __clang__
+#  if (__clang_major__ > 2) && (__clang_minor__ > 4)
 #    define STRCMPI_FUNC strcasecmp
 #  endif
 #endif
