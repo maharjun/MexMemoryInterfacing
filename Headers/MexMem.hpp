@@ -466,12 +466,13 @@ public:
 		static_assert(IsInputIterator, "The Iterator must be an input iterator");
 
 		size_t InsertSize=0;
-		if(IsForwardIterator)
+		if(IsForwardIterator) {
 			if(IsRandomAccessIterator)
 				InsertSize = End - Begin;
 			else
 				for (auto Iter = Begin; Iter != End; ++Iter)
 					InsertSize++;
+		}
 
 		if(IsForwardIterator) {
 			resize(this->size() + InsertSize);
